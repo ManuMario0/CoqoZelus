@@ -1,0 +1,16 @@
+const
+	x = 89.54 fby pre x;
+
+type
+	g = bool;
+	c = int ^ x;
+
+const
+	g, h : real;
+
+
+node MonJolieNoeudQueJaime (x, y: int) returns () ;
+let
+	x = 0;
+	assert g<>y;
+tel
