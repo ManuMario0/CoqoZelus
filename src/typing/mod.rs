@@ -97,8 +97,8 @@ fn remove_const(
                                         }
                                     }
                                 }
-                                ASTLeftItemT::ASTTableElement(astleft_item_t, _)
-                                | ASTLeftItemT::ASTTableSlice(astleft_item_t, _) => {
+                                ASTLeftItemT::ASTTableElement(_, _)
+                                | ASTLeftItemT::ASTTableSlice(_, _) => {
                                     println!("Tables not supported yet");
                                     todo!()
                                 }
@@ -120,13 +120,13 @@ fn remove_const_from_expr(
     v: ASTExprT,
 ) -> ASTExprT {
     match v {
-        ASTExprT::ASTConst(astconst_t) => ASTExprT::ASTConst(astconst_t),
-        ASTExprT::ASTVar(span) => {
+        ASTExprT::ASTConst(s, t, astconst_t) => ASTExprT::ASTConst(s, t, astconst_t),
+        ASTExprT::ASTVar(span, _) => {
             let name = obj.span_str(span);
             match const_tbl.get(&name) {
                 Some(res) => res.clone(),
                 None => match var_tbl.get(&name) {
-                    Some(_) => ASTExprT::ASTVar(span),
+                    Some(_) => ASTExprT::ASTVar(span, ASTTypeT::ASTNone),
                     None => {
                         let ((line, col), _) = obj.line_col(span);
                         println!("{name} : this symbol does not exists : line {line} col {col}");
@@ -135,211 +135,58 @@ fn remove_const_from_expr(
                 },
             }
         }
-        ASTExprT::ASTNot(astexpr_t) => ASTExprT::ASTNot(Box::new(remove_const_from_expr(
-            obj, const_tbl, var_tbl, *astexpr_t,
-        ))),
-        ASTExprT::ASTMinus(astexpr_t) => ASTExprT::ASTMinus(Box::new(remove_const_from_expr(
-            obj, const_tbl, var_tbl, *astexpr_t,
-        ))),
-        ASTExprT::ASTPre(astexpr_t) => ASTExprT::ASTPre(Box::new(remove_const_from_expr(
-            obj, const_tbl, var_tbl, *astexpr_t,
-        ))),
-        ASTExprT::ASTCurrent(astexpr_t) => ASTExprT::ASTCurrent(Box::new(remove_const_from_expr(
-            obj, const_tbl, var_tbl, *astexpr_t,
-        ))),
-        ASTExprT::ASTInt(astexpr_t) => ASTExprT::ASTInt(Box::new(remove_const_from_expr(
-            obj, const_tbl, var_tbl, *astexpr_t,
-        ))),
-        ASTExprT::ASTReal(astexpr_t) => ASTExprT::ASTReal(Box::new(remove_const_from_expr(
-            obj, const_tbl, var_tbl, *astexpr_t,
-        ))),
-        ASTExprT::ASTWhen(astexpr_t, astclock_expr_t) => match astclock_expr_t {
-            ASTClockExprT::ASTPosClock(span) | ASTClockExprT::ASTNegClock(span) => {
-                let name = obj.span_str(span);
-                match const_tbl.get(&name) {
-                    Some(res) => {
-                        let ((line, col), _) = obj.line_col(span);
-                        println!(
-                            "{name} should be a variable, not a constant : line {line} col {col}"
-                        );
-                        panic!()
-                    }
-                    None => match var_tbl.get(&name) {
-                        Some(_) => ASTExprT::ASTWhen(
-                            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-                            astclock_expr_t,
-                        ),
-                        None => {
-                            let ((line, col), _) = obj.line_col(span);
-                            println!(
-                                "{name} : this symbol does not exists : line {line} col {col}"
-                            );
-                            panic!()
-                        }
-                    },
-                }
-            }
-        },
-        ASTExprT::ASTFby(astexpr_t, astexpr_t1) => ASTExprT::ASTFby(
+        ASTExprT::ASTUnop(s, t, op, astexpr_t) => ASTExprT::ASTUnop(
+            s,
+            t,
+            op,
             Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
         ),
-        ASTExprT::ASTArrow(astexpr_t, astexpr_t1) => ASTExprT::ASTArrow(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
+        ASTExprT::ASTBinop(s, t, op, ast1, ast2) => ASTExprT::ASTBinop(
+            s,
+            t,
+            op,
+            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *ast1)),
+            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *ast2)),
         ),
-        ASTExprT::ASTAnd(astexpr_t, astexpr_t1) => ASTExprT::ASTAnd(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTOr(astexpr_t, astexpr_t1) => ASTExprT::ASTOr(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTXor(astexpr_t, astexpr_t1) => ASTExprT::ASTXor(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTImpl(astexpr_t, astexpr_t1) => ASTExprT::ASTImpl(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTEq(astexpr_t, astexpr_t1) => ASTExprT::ASTEq(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTNeq(astexpr_t, astexpr_t1) => ASTExprT::ASTNeq(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTLt(astexpr_t, astexpr_t1) => ASTExprT::ASTLt(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTLe(astexpr_t, astexpr_t1) => ASTExprT::ASTLe(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTGt(astexpr_t, astexpr_t1) => ASTExprT::ASTGt(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTGe(astexpr_t, astexpr_t1) => ASTExprT::ASTGe(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTDiv(astexpr_t, astexpr_t1) => ASTExprT::ASTDiv(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTMod(astexpr_t, astexpr_t1) => ASTExprT::ASTMod(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTSub(astexpr_t, astexpr_t1) => ASTExprT::ASTSub(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTAdd(astexpr_t, astexpr_t1) => ASTExprT::ASTAdd(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTMul(astexpr_t, astexpr_t1) => ASTExprT::ASTMul(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-        ),
-        ASTExprT::ASTIfThenElse(astexpr_t, astexpr_t1, astexpr_t2) => ASTExprT::ASTIfThenElse(
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
-            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t2)),
-        ),
-        ASTExprT::ASTFuncCall() => {
-            println!("Functions call not supported yet");
-            panic!()
+        ASTExprT::ASTIfThenElse(s, t, astexpr_t, astexpr_t1, astexpr_t2) => {
+            ASTExprT::ASTIfThenElse(
+                s,
+                t,
+                Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t)),
+                Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t1)),
+                Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *astexpr_t2)),
+            )
         }
-        ASTExprT::ASTVec(vec) => {
-            println!("Tables not supported yet");
-            panic!()
+        ASTExprT::ASTFuncCall(s, _) => {
+            obj.print_error_message(s, "Function call not supported yet");
+            todo!()
         }
-        // ASTExprT::ASTVec(Box::new(remove_const_from_expr(
-        //     obj,
-        //     const_tbl,
-        //     var_tbl,
-        //     *astexpr_t,
-        // )),
-        // Box::new(remove_const_from_expr(
-        //     obj,
-        //     const_tbl,
-        //     var_tbl,
-        //     *astexpr_t1,
-        // ))),
-        ASTExprT::ASTPow(astexpr_t, astexpr_t1) => {
-            println!("^ operation not supported yet");
-            panic!()
+        ASTExprT::ASTVec(s, _, _) => {
+            obj.print_error_message(s, "Tables not supported yet");
+            todo!()
         }
-        // ASTExprT::ASTPow(Box::new(remove_const_from_expr(
-        //     obj,
-        //     const_tbl,
-        //     var_tbl,
-        //     *astexpr_t,
-        // )),
-        // Box::new(remove_const_from_expr(
-        //     obj,
-        //     const_tbl,
-        //     var_tbl,
-        //     *astexpr_t1,
-        // ))),
-        ASTExprT::ASTGetElement(astexpr_t, astexpr_t1) => {
-            println!("Tables not supported yet");
-            panic!()
+        ASTExprT::ASTPow(s, _, _, _) => {
+            obj.print_error_message(s, "^ operation not supported yet");
+            todo!()
         }
-        // ASTExprT::ASTGetElement(Box::new(remove_const_from_expr(
-        //     obj,
-        //     const_tbl,
-        //     var_tbl,
-        //     *astexpr_t,
-        // )),
-        // Box::new(remove_const_from_expr(
-        //     obj,
-        //     const_tbl,
-        //     var_tbl,
-        //     *astexpr_t1,
-        // ))),
-        ASTExprT::ASTGetSlice(astexpr_t, astselect_t) => {
-            println!("Tables not supported yet");
-            panic!()
+        ASTExprT::ASTGetElement(s, _, astexpr_t, astexpr_t1) => {
+            obj.print_error_message(s, "Tables not supported yet");
+            todo!()
         }
-        // ASTExprT::ASTGetSlice(Box::new(remove_const_from_expr(
-        //     obj,
-        //     const_tbl,
-        //     var_tbl,
-        //     *astexpr_t,
-        // )),
-        // Box::new(remove_const_from_expr(
-        //     obj,
-        //     const_tbl,
-        //     var_tbl,
-        //     *astexpr_t1,
-        // ))),
-        ASTExprT::ASTConcat(astexpr_t, astexpr_t1) => {
-            println!("| opperation not supported");
-            panic!()
+        ASTExprT::ASTGetSlice(s, _, astexpr_t, astselect_t) => {
+            obj.print_error_message(s, "Tables not supported yet");
+            todo!()
         }
-        // ASTExprT::AST(Box::new(remove_const_from_expr(
-        //     obj,
-        //     const_tbl,
-        //     var_tbl,
-        //     *astexpr_t,
-        // )),
-        // Box::new(remove_const_from_expr(
-        //     obj,
-        //     const_tbl,
-        //     var_tbl,
-        //     *astexpr_t1,
-        // ))),
-        ASTExprT::ASTList(vec) => {
-            println!("List of object not supported yet");
-            panic!()
+        ASTExprT::ASTList(s, _, vec) => {
+            obj.print_error_message(s, "List of object not supported yet");
+            todo!()
         }
+        ASTExprT::ASTMerge(s, t, name, ast1, ast2) => ASTExprT::ASTMerge(
+            s,
+            t,
+            name,
+            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *ast1)),
+            Box::new(remove_const_from_expr(obj, const_tbl, var_tbl, *ast2)),
+        ),
     }
 }
