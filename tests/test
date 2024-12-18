@@ -3,7 +3,6 @@ const
 
 type
 	g = bool;
-	c = int ^ x;
 
 const
 	g = 10;

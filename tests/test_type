@@ -1,0 +1,6 @@
+node hello(x, y: int;z : real) returns (h: bool);
+let
+	h = x <> y;
+	z = real (5 -> pre y);
+	x = if z then pre x else y;
+tel

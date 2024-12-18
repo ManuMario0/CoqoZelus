@@ -277,6 +277,9 @@ Type -> Result<ASTTypeT, ()>:
     | 'REAL' {
         Ok(ASTTypeT::ASTReal)
     }
+    | Lv6Id {
+        Ok(ASTTypeT::ASTLabel($1?))
+    }
     | Type '^' Expression {
         Ok(ASTTypeT::ASTVec(Box::new($3?), Box::new($1?)))
     }
@@ -387,6 +390,9 @@ Expression -> Result<ASTExprT, ()>:
     }
     | 'MERGE' Lv6Id '(' 'TRUE' '->' Expression ')' '(' 'FALSE' '->' Expression ')' {
         Ok(ASTExprT::ASTMerge($span, ASTTypeT::ASTNone, $2?, Box::new($6?), Box::new($11?)))
+    }
+    | '(' Expression ')' {
+        $2
     }
 ;
 

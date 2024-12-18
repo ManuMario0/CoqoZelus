@@ -87,7 +87,19 @@ pub enum ASTTypeT {
     ASTBool,
     ASTInt,
     ASTReal,
+    ASTLabel(Span),
     ASTVec(Box<ASTExprT>, Box<ASTTypeT>),
+}
+
+impl PartialEq for ASTTypeT {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (ASTTypeT::ASTBool, ASTTypeT::ASTBool) => true,
+            (ASTTypeT::ASTInt, ASTTypeT::ASTInt) => true,
+            (ASTTypeT::ASTReal, ASTTypeT::ASTReal) => true,
+            _ => false
+        }
+    }
 }
 
 /*
