@@ -1,6 +1,7 @@
-use std::{fs::File, io::Read};
+use std::fs;
+use std::sync::{LazyLock, OnceLock};
 
-use lrlex::lrlex_mod;
+use lrlex::{lrlex_mod, DefaultLexerTypes, LRNonStreamingLexerDef};
 use lrpar::{lrpar_mod, NonStreamingLexer};
 
 lrlex_mod!("parser/lustre.l");
@@ -13,21 +14,21 @@ pub type ASTProgramT = Vec<ASTOneDeclT>;
 #[derive(Debug, Clone)]
 pub enum ASTClockExprT {
     ASTPosClock(Span),
-    ASTNegClock(Span)
+    ASTNegClock(Span),
 }
 
 #[derive(Debug, Clone)]
 pub enum ASTConstT {
     ASTBool(bool),
     ASTInt(i64),
-    ASTReal(f64)
+    ASTReal(f64),
 }
 
 #[derive(Debug, Clone)]
 pub enum ASTOneDeclT {
     ASTConstDecl(Vec<ASTConstDeclT>),
     ASTTypeDecl(Vec<ASTTypeDeclT>),
-    ASTNodeDecl(ASTNodeDeclT)
+    ASTNodeDecl(ASTNodeDeclT),
 }
 
 #[derive(Debug, Clone)]
@@ -72,7 +73,7 @@ pub enum ASTExprT {
 pub struct ASTSelectT {
     pub start: ASTExprT,
     pub end: ASTExprT,
-    pub step: ASTExprT
+    pub step: ASTExprT,
 }
 
 #[derive(Debug, Clone)]
@@ -80,7 +81,7 @@ pub enum ASTTypeT {
     ASTBool,
     ASTInt,
     ASTReal,
-    ASTVec(ASTExprT, Box<ASTTypeT>)
+    ASTVec(ASTExprT, Box<ASTTypeT>),
 }
 
 /*
@@ -115,21 +116,21 @@ pub struct ASTNodeDeclT {
 #[derive(Debug, Clone)]
 pub struct ASTVarT {
     pub name: Span,
-    pub ttype: ASTTypeT
+    pub ttype: ASTTypeT,
 }
 
 pub type ASTBodyT = Vec<ASTEquationT>;
 
 #[derive(Debug, Clone)]
 pub struct ASTEquationT {
-    lhs: ASTLeftT,
-    rhs: ASTExprT,
+    pub lhs: ASTLeftT,
+    pub rhs: ASTExprT,
 }
 
 #[derive(Debug, Clone)]
 pub enum ASTLeftT {
     ASTAssert(),
-    ASTLeftItem(Vec<ASTLeftItemT>)
+    ASTLeftItem(Vec<ASTLeftItemT>),
 }
 
 #[derive(Debug, Clone)]
@@ -139,60 +140,53 @@ pub enum ASTLeftItemT {
     ASTTableSlice(Box<ASTLeftItemT>, ASTSelectT),
 }
 
+pub struct FileObj<'lexer, 'input> {
+    ast: ASTProgramT,
+    lexer: lrlex::LRNonStreamingLexer<'lexer, 'input, lrlex::DefaultLexerTypes>,
+}
 
-pub fn get_ast(f: &str) -> Result<ASTProgramT, String> {
-    let lexerdef = lustre_l::lexerdef();
+impl FileObj<'_, '_> {
+    pub fn new(f: &'static str) -> Result<FileObj<'_, '_>, String> {
+        static LEXERDEF: LazyLock<LRNonStreamingLexerDef<DefaultLexerTypes>> =
+            LazyLock::new(|| lustre_l::lexerdef());
+        static CONTENT: OnceLock<String> = OnceLock::new();
 
-    let mut file = File::open(f).unwrap();
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).unwrap();
-    let lexer = lexerdef.lexer(&contents);
-    let (res, errs) = lustre_y::parse(&lexer);
-    let mut s = "".to_string();
-    for e in errs {
-        s = [s, e.pp(&lexer, &lustre_y::token_epp), "\n".to_string()].concat();
-    }
-    match res {
-        Some(Ok(v)) => {
-            Ok(v)
+        CONTENT.set(fs::read_to_string(f).unwrap()).unwrap();
+        let lexer = LEXERDEF.lexer(&CONTENT.get().unwrap());
+        let (res, errs) = lustre_y::parse(&lexer);
+        let mut s = "".to_string();
+        for e in errs {
+            s = [s, e.pp(&lexer, &lustre_y::token_epp), "\n".to_string()].concat();
         }
-        _ => {
-            Err(s)
+        match res {
+            Some(Ok(v)) => Ok(FileObj { ast: v, lexer }),
+            _ => Err(s),
         }
     }
-}
 
-pub fn span_str(f: String, span: lrpar::Span) -> String {
-    let lexerdef = lustre_l::lexerdef();
+    pub fn get_ast(&self) -> &ASTProgramT {
+        &self.ast
+    }
 
-    let mut f = File::open(f).unwrap();
-    let mut contents = String::new();
-    f.read_to_string(&mut contents).unwrap();
-    let lexer = lexerdef.lexer(&contents);
+    pub fn get_mut_ast(&mut self) -> &mut ASTProgramT {
+        &mut self.ast
+    }
 
-    lexer.span_str(span).to_string()
-}
+    pub fn set_ast(&mut self, ast: ASTProgramT) {
+        self.ast = ast;
+    }
 
-pub fn span_lines_str(f: String, span: lrpar::Span) -> String {
-    let lexerdef = lustre_l::lexerdef();
+    pub fn span_str(&self, span: lrpar::Span) -> String {
+        self.lexer.span_str(span).to_string()
+    }
 
-    let mut f = File::open(f).unwrap();
-    let mut contents = String::new();
-    f.read_to_string(&mut contents).unwrap();
-    let lexer = lexerdef.lexer(&contents);
+    pub fn span_lines_str(&self, span: lrpar::Span) -> String {
+        self.lexer.span_lines_str(span).to_string()
+    }
 
-    lexer.span_lines_str(span).to_string()
-}
-
-fn line_col(f: String, span: lrpar::Span) -> ((usize, usize), (usize, usize)) {
-    let lexerdef = lustre_l::lexerdef();
-
-    let mut f = File::open(f).unwrap();
-    let mut contents = String::new();
-    f.read_to_string(&mut contents).unwrap();
-    let lexer = lexerdef.lexer(&contents);
-
-    lexer.line_col(span)
+    pub fn line_col(&self, span: lrpar::Span) -> ((usize, usize), (usize, usize)) {
+        self.lexer.line_col(span)
+    }
 }
 
 #[cfg(test)]
@@ -201,9 +195,9 @@ mod tests {
 
     #[test]
     fn debugger() {
-        match get_ast("/Users/emmanuel/Documents/developement/shared-projects/reactive-sys/CoqoZelus/tests/test") {
-            Ok(ast) => {
-                println!("{:?}", ast);
+        match FileObj::new("/Users/emmanuel/Documents/developement/shared-projects/reactive-sys/CoqoZelus/tests/test") {
+            Ok(obj) => {
+                println!("{:?}", obj.get_ast());
                 assert!(true);
             }
             Err(e) => {
