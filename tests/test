@@ -1,0 +1,17 @@
+const
+	x = 89.54;
+
+type
+	g = bool;
+	c = int ^ x;
+
+const
+	g = 10;
+	h = 34;
+
+
+node MonJolieNoeudQueJaime (x, y: int) returns () ;
+let
+	x = 0;
+	y = g+h;
+tel
