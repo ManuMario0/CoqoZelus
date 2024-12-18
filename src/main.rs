@@ -1,5 +1,3 @@
-use std::borrow::BorrowMut;
-
 use parser::FileObj;
 use typing::flatten_const;
 
@@ -20,5 +18,4 @@ fn main() {
             assert!(false);
         }
     }
-    println!("Hello world !");
 }

@@ -278,112 +278,115 @@ Type -> Result<ASTTypeT, ()>:
         Ok(ASTTypeT::ASTReal)
     }
     | Type '^' Expression {
-        Ok(ASTTypeT::ASTVec($3?, Box::new($1?)))
+        Ok(ASTTypeT::ASTVec(Box::new($3?), Box::new($1?)))
     }
 ;
 
 Expression -> Result<ASTExprT, ()>:
     Constant {
-        Ok(ASTExprT::ASTConst($1?))
+        Ok(ASTExprT::ASTConst($span, ASTTypeT::ASTNone, $1?))
     }
     | Lv6Id {
-        Ok(ASTExprT::ASTVar($1?))
+        Ok(ASTExprT::ASTVar($1?, ASTTypeT::ASTNone))
     }
     | 'NOT' Expression {
-        Ok(ASTExprT::ASTNot(Box::new($2?)))
+        Ok(ASTExprT::ASTUnop($span, ASTTypeT::ASTNone, ASTNot, Box::new($2?)))
     }
     | '-' Expression {
-        Ok(ASTExprT::ASTNot(Box::new($2?)))
+        Ok(ASTExprT::ASTUnop($span, ASTTypeT::ASTNone, ASTNot, Box::new($2?)))
     }
     | 'PRE' Expression {
-        Ok(ASTExprT::ASTPre(Box::new($2?)))
+        Ok(ASTExprT::ASTUnop($span, ASTTypeT::ASTNone, ASTPre, Box::new($2?)))
     }
     | 'CURRENT' Expression {
-        Ok(ASTExprT::ASTCurrent(Box::new($2?)))
+        Ok(ASTExprT::ASTUnop($span, ASTTypeT::ASTNone, ASTCurrent, Box::new($2?)))
     }
     | 'INT' Expression {
-        Ok(ASTExprT::ASTInt(Box::new($2?)))
+        Ok(ASTExprT::ASTUnop($span, ASTTypeT::ASTNone, ASTInt, Box::new($2?)))
     }
     | 'REAL' Expression {
-        Ok(ASTExprT::ASTReal(Box::new($2?)))
+        Ok(ASTExprT::ASTUnop($span, ASTTypeT::ASTNone, ASTReal, Box::new($2?)))
     }
     | Expression 'WHEN' ClockExpression {
-        Ok(ASTExprT::ASTWhen(Box::new($1?), $3?))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTWhen, Box::new($1?), Box::new($3?)))
     }
     | Expression 'FBY' Expression {
-        Ok(ASTExprT::ASTFby(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTFby, Box::new($1?), Box::new($3?)))
     }
     | Expression '->' Expression {
-        Ok(ASTExprT::ASTArrow(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTArrow, Box::new($1?), Box::new($3?)))
     }
     | Expression 'AND' Expression {
-        Ok(ASTExprT::ASTAnd(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTAnd, Box::new($1?), Box::new($3?)))
     }
     | Expression 'OR' Expression {
-        Ok(ASTExprT::ASTOr(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTOr, Box::new($1?), Box::new($3?)))
     }
     | Expression 'XOR' Expression {
-        Ok(ASTExprT::ASTXor(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTXor, Box::new($1?), Box::new($3?)))
     }
     | Expression '=>' Expression {
-        Ok(ASTExprT::ASTImpl(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTImpl, Box::new($1?), Box::new($3?)))
     }
     | Expression '=' Expression {
-        Ok(ASTExprT::ASTEq(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTEq, Box::new($1?), Box::new($3?)))
     }
     | Expression '<>' Expression {
-        Ok(ASTExprT::ASTNeq(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTNeq, Box::new($1?), Box::new($3?)))
     }
     | Expression '<' Expression {
-        Ok(ASTExprT::ASTLt(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTLt, Box::new($1?), Box::new($3?)))
     }
     | Expression '<=' Expression {
-        Ok(ASTExprT::ASTLe(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTLe, Box::new($1?), Box::new($3?)))
     }
     | Expression '>' Expression {
-        Ok(ASTExprT::ASTGt(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTGt, Box::new($1?), Box::new($3?)))
     }
     | Expression '>=' Expression {
-        Ok(ASTExprT::ASTGe(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTGe, Box::new($1?), Box::new($3?)))
     }
     | Expression 'DIV' Expression {
-        Ok(ASTExprT::ASTDiv(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTDiv, Box::new($1?), Box::new($3?)))
     }
     | Expression 'MOD' Expression {
-        Ok(ASTExprT::ASTMod(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTMod, Box::new($1?), Box::new($3?)))
     }
     | Expression '-' Expression {
-        Ok(ASTExprT::ASTSub(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTSub, Box::new($1?), Box::new($3?)))
     }
     | Expression '+' Expression {
-        Ok(ASTExprT::ASTAdd(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTAdd, Box::new($1?), Box::new($3?)))
     }
     | Expression '/' Expression {
-        Ok(ASTExprT::ASTDiv(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTDiv, Box::new($1?), Box::new($3?)))
     }
     | Expression '*' Expression {
-        Ok(ASTExprT::ASTMul(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTMul, Box::new($1?), Box::new($3?)))
     }
     | 'IF' Expression 'THEN' Expression 'ELSE' Expression {
-        Ok(ASTExprT::ASTIfThenElse(Box::new($2?), Box::new($4?), Box::new($6?)))
+        Ok(ASTExprT::ASTIfThenElse($span, ASTTypeT::ASTNone, Box::new($2?), Box::new($4?), Box::new($6?)))
     }
     | CallExpression {
-        Ok(ASTExprT::ASTFuncCall())
+        Ok(ASTExprT::ASTFuncCall($span, ASTTypeT::ASTNone, ))
     }
     | '[' ExpressionList ']' {
-        Ok(ASTExprT::ASTVec(Box::new($2?)))
+        Ok(ASTExprT::ASTVec($span, ASTTypeT::ASTNone, Box::new($2?)))
     }
     | Expression '^' Expression {
-        Ok(ASTExprT::ASTPow(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTPow($span, ASTTypeT::ASTNone, Box::new($1?), Box::new($3?)))
     }
     | Expression '|' Expression {
-        Ok(ASTExprT::ASTConcat(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTBinop($span, ASTTypeT::ASTNone, ASTConcat, Box::new($1?), Box::new($3?)))
     }
     | Expression '[' Expression ']' {
-        Ok(ASTExprT::ASTGetElement(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTGetElement($span, ASTTypeT::ASTNone, Box::new($1?), Box::new($3?)))
     }
     | Expression '[' Select ']' {
-        Ok(ASTExprT::ASTGetSlice(Box::new($1?), Box::new($3?)))
+        Ok(ASTExprT::ASTGetSlice($span, ASTTypeT::ASTNone, Box::new($1?), Box::new($3?)))
+    }
+    | 'MERGE' Lv6Id '(' 'TRUE' '->' Expression ')' '(' 'FALSE' '->' Expression ')' {
+        Ok(ASTExprT::ASTMerge($span, ASTTypeT::ASTNone, $2?, Box::new($6?), Box::new($11?)))
     }
 ;
 
@@ -422,12 +425,14 @@ Real -> Result<f64, ()>:
     }
 ;
 
-ClockExpression -> Result<ASTClockExprT, ()>:
+ClockExpression -> Result<ASTExprT, ()>:
     Lv6Id {
-        Ok(ASTClockExprT::ASTPosClock($1?))
+        Ok(ASTExprT::ASTVar($1?, ASTTypeT::ASTNone))
+        // Ok(ASTClockExprT::ASTPosClock($1?))
     }
     | 'NOT' Lv6Id {
-        Ok(ASTClockExprT::ASTNegClock($2?))
+        Ok(ASTExprT::ASTUnop($span, ASTTypeT::ASTNone, ASTNot, Box::new(ASTExprT::ASTVar($2?, ASTTypeT::ASTNone))))
+        // Ok(ASTClockExprT::ASTNegClock($2?))
     }
 ;
 
@@ -450,36 +455,36 @@ Select -> Result<ASTSelectT, ()>:
     'num' '.' '.' Expression {
         let v = $lexer.span_str($1.map_err(|_| ())?.span()).parse::<i64>().map_err(|_| ());
         Ok(ASTSelectT {
-            start: ASTExprT::ASTConst(ASTConstT::ASTInt(v?)),
+            start: ASTExprT::ASTConst($1.map_err(|_| ())?.span(), ASTTypeT::ASTNone, ASTConstT::ASTInt(v?)),
             end: $4?,
-            step: ASTExprT::ASTConst(ASTConstT::ASTInt(1)),
+            step: ASTExprT::ASTConst($span, ASTTypeT::ASTNone, ASTConstT::ASTInt(1)),
         })
     }
     | Lv6Id '.' '.' Expression {
         Ok(ASTSelectT {
-            start: ASTExprT::ASTVar($1?),
+            start: ASTExprT::ASTVar($1?, ASTTypeT::ASTNone),
             end: $4?,
-            step: ASTExprT::ASTConst(ASTConstT::ASTInt(1)),
+            step: ASTExprT::ASTConst($span, ASTTypeT::ASTNone, ASTConstT::ASTInt(1)),
         })
     }
     | '(' Expression ')' '.' '.' Expression {
         Ok(ASTSelectT {
             start: $2?,
             end: $6?,
-            step: ASTExprT::ASTConst(ASTConstT::ASTInt(1)),
+            step: ASTExprT::ASTConst($span, ASTTypeT::ASTNone, ASTConstT::ASTInt(1)),
         })
     }
     | 'num' '.' '.' Expression 'STEP' Expression {
         let v = $lexer.span_str($1.map_err(|_| ())?.span()).parse::<i64>().map_err(|_| ());
         Ok(ASTSelectT {
-            start: ASTExprT::ASTConst(ASTConstT::ASTInt(v?)),
+            start: ASTExprT::ASTConst($1.map_err(|_| ())?.span(), ASTTypeT::ASTNone, ASTConstT::ASTInt(v?)),
             end: $4?,
             step: $6?
         })
     }
     | Lv6Id '.' '.' Expression 'STEP' Expression {
         Ok(ASTSelectT {
-            start: ASTExprT::ASTVar($1?),
+            start: ASTExprT::ASTVar($1?, ASTTypeT::ASTNone),
             end: $4?,
             step: $6?
         })
@@ -496,23 +501,9 @@ Select -> Result<ASTSelectT, ()>:
 
 use lrpar::Span;
 
-use super::{
-    ASTProgramT, 
-    ASTClockExprT, 
-    ASTConstT, 
-    ASTOneDeclT, 
-    ASTExprT,
-    ASTSelectT,
-    ASTTypeT,
-    ASTConstDeclT,
-    ASTTypeDeclT,
-    ASTNodeDeclT,
-    ASTVarT,
-    ASTBodyT,
-    ASTEquationT,
-    ASTLeftT,
-    ASTLeftItemT
-};
+use super::*;
+use ASTBinopT::*;
+use ASTUnopT::*;
 
 fn flatten<T>(lhs: Result<Vec<T>, ()>, rhs: Result<T, ()>)
            -> Result<Vec<T>, ()> {

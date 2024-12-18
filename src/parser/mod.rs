@@ -12,12 +12,6 @@ use lrpar::Span;
 pub type ASTProgramT = Vec<ASTOneDeclT>;
 
 #[derive(Debug, Clone)]
-pub enum ASTClockExprT {
-    ASTPosClock(Span),
-    ASTNegClock(Span),
-}
-
-#[derive(Debug, Clone)]
 pub enum ASTConstT {
     ASTBool(bool),
     ASTInt(i64),
@@ -32,41 +26,52 @@ pub enum ASTOneDeclT {
 }
 
 #[derive(Debug, Clone)]
+pub enum ASTUnopT {
+    ASTNot,
+    ASTMinus,
+    ASTPre,
+    ASTCurrent,
+    ASTInt,
+    ASTReal,
+}
+
+#[derive(Debug, Clone)]
+pub enum ASTBinopT {
+    ASTWhen,
+    ASTFby,
+    ASTArrow,
+    ASTAnd,
+    ASTOr,
+    ASTXor,
+    ASTImpl,
+    ASTEq,
+    ASTNeq,
+    ASTLt,
+    ASTLe,
+    ASTGt,
+    ASTGe,
+    ASTDiv,
+    ASTMod,
+    ASTSub,
+    ASTAdd,
+    ASTMul,
+    ASTConcat,
+}
+
+#[derive(Debug, Clone)]
 pub enum ASTExprT {
-    ASTConst(ASTConstT),
-    ASTVar(Span),
-    ASTNot(Box<ASTExprT>),
-    ASTMinus(Box<ASTExprT>),
-    ASTPre(Box<ASTExprT>),
-    ASTCurrent(Box<ASTExprT>),
-    ASTInt(Box<ASTExprT>),
-    ASTReal(Box<ASTExprT>),
-    ASTWhen(Box<ASTExprT>, ASTClockExprT),
-    ASTFby(Box<ASTExprT>, Box<ASTExprT>),
-    ASTArrow(Box<ASTExprT>, Box<ASTExprT>),
-    ASTAnd(Box<ASTExprT>, Box<ASTExprT>),
-    ASTOr(Box<ASTExprT>, Box<ASTExprT>),
-    ASTXor(Box<ASTExprT>, Box<ASTExprT>),
-    ASTImpl(Box<ASTExprT>, Box<ASTExprT>),
-    ASTEq(Box<ASTExprT>, Box<ASTExprT>),
-    ASTNeq(Box<ASTExprT>, Box<ASTExprT>),
-    ASTLt(Box<ASTExprT>, Box<ASTExprT>),
-    ASTLe(Box<ASTExprT>, Box<ASTExprT>),
-    ASTGt(Box<ASTExprT>, Box<ASTExprT>),
-    ASTGe(Box<ASTExprT>, Box<ASTExprT>),
-    ASTDiv(Box<ASTExprT>, Box<ASTExprT>),
-    ASTMod(Box<ASTExprT>, Box<ASTExprT>),
-    ASTSub(Box<ASTExprT>, Box<ASTExprT>),
-    ASTAdd(Box<ASTExprT>, Box<ASTExprT>),
-    ASTMul(Box<ASTExprT>, Box<ASTExprT>),
-    ASTIfThenElse(Box<ASTExprT>, Box<ASTExprT>, Box<ASTExprT>),
-    ASTFuncCall(),
-    ASTVec(Box<Vec<ASTExprT>>),
-    ASTPow(Box<ASTExprT>, Box<ASTExprT>),
-    ASTGetElement(Box<ASTExprT>, Box<ASTExprT>),
-    ASTGetSlice(Box<ASTExprT>, Box<ASTSelectT>),
-    ASTConcat(Box<ASTExprT>, Box<ASTExprT>),
-    ASTList(Box<Vec<ASTExprT>>),
+    ASTConst(Span, ASTTypeT, ASTConstT),
+    ASTVar(Span, ASTTypeT),
+    ASTUnop(Span, ASTTypeT, ASTUnopT, Box<ASTExprT>),
+    ASTBinop(Span, ASTTypeT, ASTBinopT, Box<ASTExprT>, Box<ASTExprT>),
+    ASTIfThenElse(Span, ASTTypeT, Box<ASTExprT>, Box<ASTExprT>, Box<ASTExprT>),
+    ASTFuncCall(Span, ASTTypeT),
+    ASTVec(Span, ASTTypeT, Box<Vec<ASTExprT>>),
+    ASTPow(Span, ASTTypeT, Box<ASTExprT>, Box<ASTExprT>),
+    ASTGetElement(Span, ASTTypeT, Box<ASTExprT>, Box<ASTExprT>),
+    ASTGetSlice(Span, ASTTypeT, Box<ASTExprT>, Box<ASTSelectT>),
+    ASTList(Span, ASTTypeT, Box<Vec<ASTExprT>>),
+    ASTMerge(Span, ASTTypeT, Span, Box<ASTExprT>, Box<ASTExprT>),
 }
 
 #[derive(Debug, Clone)]
@@ -78,10 +83,11 @@ pub struct ASTSelectT {
 
 #[derive(Debug, Clone)]
 pub enum ASTTypeT {
+    ASTNone,
     ASTBool,
     ASTInt,
     ASTReal,
-    ASTVec(ASTExprT, Box<ASTTypeT>),
+    ASTVec(Box<ASTExprT>, Box<ASTTypeT>),
 }
 
 /*
@@ -186,6 +192,11 @@ impl FileObj<'_, '_> {
 
     pub fn line_col(&self, span: lrpar::Span) -> ((usize, usize), (usize, usize)) {
         self.lexer.line_col(span)
+    }
+
+    pub fn print_error_message(&self, span: lrpar::Span, msg: &str) {
+        let ((line, col), _) = self.line_col(span);
+        println!("[ ERROR ] {msg} : at line {line}, col {col}");
     }
 }
 
