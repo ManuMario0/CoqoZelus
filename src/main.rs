@@ -3,6 +3,7 @@ use typing::{flatten_const, type_ast};
 
 pub mod parser;
 mod typing;
+mod transpile;
 
 fn main() {
     match FileObj::new(
