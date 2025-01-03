@@ -4,6 +4,7 @@ use typing::{flatten_const, type_ast};
 pub mod parser;
 mod typing;
 mod transpile;
+mod compiler;
 
 fn main() {
     match FileObj::new(

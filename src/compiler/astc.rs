@@ -28,7 +28,7 @@ state_t step(state_t s, inputs)  {
 
 */
 
-use crate::astlustre::{self, Typ};
+use crate::compiler::astlustre::{self, Typ};
 
 // the C program
 // state is the struct

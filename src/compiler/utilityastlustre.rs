@@ -1,7 +1,7 @@
 
 /* Utility functions for AST LUSTRE */
 
-use crate::{astc::{self, CProg, CVar, CVarRole}, astlustre::{Equation, Expr, LocalVar, Node, Var}};
+use crate::compiler::{astc::{self, CProg, CVar, CVarRole}, astlustre::{Equation, Expr, LocalVar, Node, Var}};
 
 pub fn build_node(name : String, input : Vec<Var>, output : Vec<Var>, local_vars : Vec<Var>, body : Vec<Equation>) -> Node {
     Node { name, input, output, local_vars, body}
