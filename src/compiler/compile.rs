@@ -1,5 +1,5 @@
 use crate::compiler::{
-    astc::{self, build_cprog, build_local_cvar, build_mem, empty_mem, new_localcvar, CLocalVar, CMemory, CProg, CState, CStep, CVar},
+    astc::{self, build_cprog, build_local_cvar, build_mem, empty_mem, new_localcvar},
     astlustre::{
         self, Equation, Expr, LustreProg, Node
     },
@@ -7,6 +7,8 @@ use crate::compiler::{
         self, build_base_cstate, build_equation, build_node, modify_height, number_vars, var_in
     }
 };
+
+use crate::transpile::{CLocalVar, CMemory, CProg, CState, CStep, CVar};
 
 /* SYNTACTIC DEPENDENCY :
 the minimal requirement for a suitable computation order
@@ -240,5 +242,5 @@ pub fn compile(ast: LustreProg) -> CProg {
     //let state = astc::empty_state();
     let node = ast.get(0).unwrap();
     let state = gather_cstate(node);
-    build_cprog(state, empty_mem(), Vec::new(), Vec::new(), astc::CStep { body: Vec::new() })
+    build_cprog(state, empty_mem(), Vec::new(), Vec::new(), CStep { body: Vec::new() })
 }

@@ -3,40 +3,8 @@ use std::fmt::format;
 use lrlex::CTLexer;
 use lrpar::action_generictree;
 
-// binary operations (excepted fby and arrow)
-pub enum Binop {
-    Badd,
-    Bsub,
-    Bmul,
-    Bdiv,
-    Bleq,
-    Bgeq,
-    Bl,
-    Bg,
-    Beq,
-    Bneq,
-    Band,
-    Bor,
-    Bxor,
-    Bimpl,
-}
+use crate::compiler::astlustre::{Unop, Binop, Typ};
 
-// unary operations (excepted pre)
-pub enum Unop {
-    Uneg,
-    Unot,
-}
-
-
-
-#[derive(Clone)]
-// types
-pub enum Typ {
-    Tint,
-    Tbool,
-    Treal,
-    Tvec(u64, Box<Typ>)
-}
 
 // the C program
 // state is the struct
@@ -85,8 +53,8 @@ pub enum Cexpr {
 // access to a variable in a program
 // contains the additional info of which depth needs to be accessed
 pub struct CAccessVar {
-    var: CVar,
-    depth: i32,
+    pub var: CVar,
+    pub depth: i32,
 }
 
 // variables

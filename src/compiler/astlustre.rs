@@ -2,7 +2,7 @@
 
 For now, we consider programs with only one node */
 
-use crate::compiler::astc::{self, CProg, CVar, CVarRole};
+use crate::transpile::{self, CProg, CVar, CVarRole};
 
 // program
 pub type LustreProg = Vec<Node>;

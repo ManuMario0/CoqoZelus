@@ -1,7 +1,9 @@
 
 /* Utility functions for AST LUSTRE */
 
-use crate::compiler::{astc::{self, CProg, CVar, CVarRole}, astlustre::{Equation, Expr, LocalVar, Node, Var}};
+use crate::{compiler::{astc::{self}, astlustre::{Equation, Expr, LocalVar, Node, Var}}, transpile::CState};
+
+use crate::transpile::{CProg, CVar, CVarRole};
 
 pub fn build_node(name : String, input : Vec<Var>, output : Vec<Var>, local_vars : Vec<Var>, body : Vec<Equation>) -> Node {
     Node { name, input, output, local_vars, body}
@@ -77,7 +79,7 @@ pub fn eq_var_lc(vl: &Var, vc: &CVar) -> bool {
 // Given a state and the variable,
 // finds a CVar equal to the variable
 // and modifies its depth
-pub fn modify_height(mut state: astc::CState, v: &Var, depth: i32) -> astc::CState {
+pub fn modify_height(mut state: CState, v: &Var, depth: i32) -> CState {
     for i in 0..state.vars.len() {
         if eq_var_lc(v, &state.vars[i]) {
             state.vars[i].depth = depth
@@ -88,7 +90,7 @@ pub fn modify_height(mut state: astc::CState, v: &Var, depth: i32) -> astc::CSta
 
 // builds a base state associated to a node
 // in this base state, all variables have depth 0
-pub fn build_base_cstate(node: &Node) -> astc::CState {
+pub fn build_base_cstate(node: &Node) -> CState {
     let mut state = astc::empty_state();
     for var in &node.input {
         state.vars.push(astc::build_cvar(
