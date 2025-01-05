@@ -80,6 +80,6 @@ pub fn build_access_var(var: CVar, depth: i32) -> CAccessVar {
 }*/
 
 // checks that two cvariables are equal
-pub fn eq_var(x: &CVar, y: &CVar) -> bool {
+pub fn eq_var_c(x: &CVar, y: &CVar) -> bool {
     x.id == y.id && x.name == y.name
 }

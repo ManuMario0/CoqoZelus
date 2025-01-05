@@ -6,77 +6,16 @@ use crate::{compiler::{
         self, Equation, Expr, LustreProg, Node
     },
     utilityastlustre::{
-        self, build_base_cprog, build_equation, build_node, modify_height, new_localvar, number_vars, type_cst, var_in
+        self, build_base_cprog, build_equation, build_node, eq_var, modify_height, new_localvar, number_vars, type_cst, var_in
     }
 }, transpile::{CVarRole, Cexpr}};
 
 use crate::transpile::{CProg, CState, CStep, CVar, Cinstruction};
 
-use super::{astc::build_step, utilityastlustre::{contains_var, is_fby, new_fbyvar, push_equ, trans_var, translate_const, translate_var, type_expr, var_in_prog}};
+use super::{astc::{build_step, eq_var_c}, build_d_info, utilityastlustre::{contains_var, gather_vars, is_fby, new_fbyvar, out_of_pre, push_equ, trans_var, translate_const, translate_var, type_expr, var_in_common, var_in_prog}, DInfo};
 
 // TODO
 // anti dependency
-
-
-/* SYNTACTIC DEPENDENCY :
-the minimal requirement for a suitable computation order
-X depends on Y iff X=E and Y appears outside of a pre operator in E
-A program is causal when for each node the corresponding graph of dependencies is acyclic */
-
-// builds the syntactic dependency of variables in a program
-// in the form of an adjacency list
-pub fn dependency_list(node: &Node) -> Vec<Vec<astlustre::Var>> {
-    let mut deplist = vec![Vec::new(); number_vars(node)];
-    for eq in &node.body {
-        deplist[eq.var.id] = out_of_pre(&eq.var, &eq.expression)
-    }
-    deplist
-}
-
-// checks acyclicity of the dependency graph
-pub fn acyclicity(_dependency_graph: Vec<Vec<astlustre::Var>>) -> bool {
-    todo!()
-}
-
-// find the variables that appears outside of a pre operator in expression E
-pub fn out_of_pre(y: &astlustre::Var, expr: &Expr) -> Vec<astlustre::Var> {
-    outside_of_pre(y, expr, Vec::new())
-}
-
-pub fn outside_of_pre(
-    y: &astlustre::Var,
-    expr: &Expr,
-    mut vars: Vec<astlustre::Var>,
-) -> Vec<astlustre::Var> {
-    match expr {
-        Expr::Econst(_) => vars,
-        Expr::Evar(v) => {
-            if var_in(&v, &vars) {
-                vars.push(v.clone())
-            }
-            vars
-        }
-        Expr::Ebinop(_, e1, e2)
-        | Expr::Emerge(_,e1 ,e2 ) => {
-            let vars = outside_of_pre(&y, &*e1, vars);
-            outside_of_pre(&y, &*e2, vars)
-        }
-        Expr::Eunop(_, e) => outside_of_pre(&y, &*e, vars),
-        Expr::Eifthenelse(e1, e2, e3) => {
-            let vars = outside_of_pre(&y, &*e1, vars);
-            let vars = outside_of_pre(&y, &*e2, vars);
-            outside_of_pre(&y, &*e3, vars)
-        }
-        Expr::Earrow(e1, e2) => {
-            let vars = outside_of_pre(&y, &*e1, vars);
-            outside_of_pre(&y, &*e2, vars)
-        }
-        Expr::Epre(e1) => vars,
-        Expr::Efby(c, e) => vars,
-        Expr::Ewhen(e, _) => outside_of_pre(y, e, vars),
-        Expr::Ecall(_, _) => vars, //TODO
-    }
-}
 
 /* ------------------------------------------------------------------------- */
 
@@ -125,6 +64,7 @@ pub fn assign_depths_aux(state: &CState, expr: &Expr, current_depth: i32) -> CSt
 /* ------------------------------------------------------------------------ */
 
 /* NORMALISATION PHASE
+
 source-to-source transformation which consists in extracting stateful
 computations that appear inside expressions */
 
@@ -233,6 +173,76 @@ pub fn normalize_expression_aux(expr : &Expr, equs : &Vec<Equation>, nb_equ : i3
     }
 }
 
+/* ------------------------------------------------------------------------ */
+
+/* SCHEDULING PHASE
+
+find a schedule of a vector of equations
+results in the reordering of the Node's body
+
+a schedule needs to respect these constraints :
+- static dependency
+- anti dependency on fby */
+
+// check if an equation is ready (i.e. it can be inserted in the schedule)
+// takes the equation and the set of other equations waiting to be scheduled
+pub fn is_ready(equ : &Equation, key : &usize, d : &DInfo) -> bool {
+    match &equ.expression {
+        Expr::Efby(_, e) => {
+            let vars_in_e = gather_vars(e);
+            for (i, equ_info) in d{
+                if key == i {
+                    break;
+                }
+                if var_in(&equ.var, &equ_info.vars) {
+                    return false
+                }
+                if var_in(&equ_info.def, &vars_in_e) {
+                    return false
+                }
+            }
+            true
+        },
+        _ => {
+            for (i, equ_info) in d{
+                if key == i {
+                    break;
+                }
+                if var_in(&equ.var, &equ_info.left) {
+                    return false
+                }
+                if var_in(&equ.var, &out_of_pre(&equ.expression)) {
+                    return false
+                }
+            }
+            true
+        },
+    }
+}
+
+// finds a schedule of a vector of equations
+pub fn schedule(body : Vec<Equation>) -> Vec<Equation> {
+    let mut schedule = Vec::new();
+    let mut d = build_d_info(&body);
+    while !d.is_empty(){
+        let mut n : Option<usize> = None;
+        for (key, einfo) in &d{
+            if is_ready(&einfo.equ, key, &d) {
+                n = Some(*key);
+                break;
+            }
+        }
+        match n{
+            Some(n) => {
+                let einfo = d.remove(&n);
+                schedule.push(einfo.unwrap().equ);
+            }
+            None => panic!("Dependency graph is not acyclic")
+        }
+
+    }
+    schedule
+}
 
 /* ------------------------------------------------------------------------ */
 
@@ -336,6 +346,10 @@ pub fn translate_expression(expr: &Expr, prog : &CProg) -> Cexpr {
 
 // Takes a Lustre AST and translates it into a C AST
 pub fn compile(ast: LustreProg) -> CProg {
-    let node = ast.get(0).unwrap();
-    todo!()
+    let mut node = ast.get(0).unwrap().clone();
+    node = normalize_body(&node);
+    let schedule = schedule(node.body);
+    node.body = schedule;
+    let mut prog = translate_vars(&node);
+    translate_steps(&node, prog)
 }

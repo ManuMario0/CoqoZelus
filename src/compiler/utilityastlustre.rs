@@ -2,6 +2,7 @@
 /* Utility functions for AST LUSTRE */
 
 use core::panic;
+use std::ops::Not;
 
 use crate::{compiler::{astc::{self}, astlustre::{Equation, Expr, Node, Var}}, transpile::{CConst, CState}};
 
@@ -27,6 +28,16 @@ pub fn var_in(x: &Var, vars: &Vec<Var>) -> bool {
     for v in vars {
         if eq_var(x, v) {
             return true;
+        }
+    }
+    false
+}
+
+// Checks if two var vectors have a var in common
+pub fn var_in_common(v1 : &Vec<Var>, v2 : &Vec<Var>) -> bool {
+    for v in v1 {
+        if var_in(v, v2) {
+            return true
         }
     }
     false
@@ -105,6 +116,94 @@ pub fn type_expr(expr : &Expr) -> Typ {
         _ => panic!(),
     }
 }
+
+// gathers variables of an expression
+pub fn gather_vars(expr: &Expr) -> Vec<Var> {
+    gather_vars_aux(expr, Vec::new())
+}
+
+pub fn gather_vars_aux(expr : &Expr, mut vars : Vec<Var>) -> Vec<Var> {
+    match expr{
+        Expr::Econst(_) => vars,
+        Expr::Evar(v) => {
+            vars.push(v.clone());
+            vars
+        },
+        Expr::Ebinop(_,e1 ,e2 )
+        | Expr::Emerge(_,e1 ,e2 )
+        => {
+            let vars = gather_vars_aux(e1, vars);
+            gather_vars_aux(e2, vars)
+        },
+        Expr::Eunop(_, e)
+        | Expr::Efby(_, e)
+        | Expr::Ewhen(e, _)
+        => gather_vars_aux(e, vars),
+        Expr::Ecall(_, vs) => {
+            vars.extend(vs.clone());
+            vars
+        }
+        _ => panic!(),
+    }
+}
+
+
+/* SYNTACTIC DEPENDENCY :
+the minimal requirement for a suitable computation order
+X depends on Y iff X=E and Y appears outside of a pre operator in E
+A program is causal when for each node the corresponding graph of dependencies is acyclic */
+
+/* 
+// builds the syntactic dependency of variables in a program
+// in the form of an adjacency list
+pub fn dependency_list(node: &Node) -> Vec<Vec<astlustre::Var>> {
+    let mut deplist = vec![Vec::new(); number_vars(node)];
+    for eq in &node.body {
+        deplist[eq.var.id] = out_of_pre(&eq.var, &eq.expression)
+    }
+    deplist
+}*/
+
+
+// find the variables that appears outside of a pre operator in expression E
+pub fn out_of_pre(expr: &Expr) -> Vec<Var> {
+    outside_of_pre(expr, Vec::new())
+}
+
+pub fn outside_of_pre(
+    expr: &Expr,
+    mut vars: Vec<Var>,
+) -> Vec<Var> {
+    match expr {
+        Expr::Econst(_) => vars,
+        Expr::Evar(v) => {
+            if var_in(&v, &vars).not() {
+                vars.push(v.clone())
+            }
+            vars
+        }
+        Expr::Ebinop(_, e1, e2)
+        | Expr::Emerge(_,e1 ,e2 ) => {
+            let vars = outside_of_pre(&*e1, vars);
+            outside_of_pre(&*e2, vars)
+        }
+        Expr::Eunop(_, e) => outside_of_pre(&*e, vars),
+        Expr::Eifthenelse(e1, e2, e3) => {
+            let vars = outside_of_pre(&*e1, vars);
+            let vars = outside_of_pre(&*e2, vars);
+            outside_of_pre(&*e3, vars)
+        }
+        Expr::Earrow(e1, e2) => {
+            let vars = outside_of_pre(&*e1, vars);
+            outside_of_pre(&*e2, vars)
+        }
+        Expr::Epre(e1) => vars,
+        Expr::Efby(c, e) => vars,
+        Expr::Ewhen(e, _) => outside_of_pre(e, vars),
+        Expr::Ecall(_, _) => vars, //TODO
+    }
+}
+
 
 
 
