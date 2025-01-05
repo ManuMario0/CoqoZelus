@@ -59,12 +59,6 @@ pub struct Var {
     pub vtype: Typ,
 }
 
-#[derive(Clone)]
-pub struct LocalVar {
-    pub(crate) name: String,
-    pub id: usize,
-}
-
 // constants
 #[derive(Clone)]
 pub enum Constant {
