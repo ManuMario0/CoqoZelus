@@ -389,7 +389,7 @@ Expression -> Result<ASTExprT, ()>:
         Ok(ASTExprT::ASTGetSlice($span, ASTTypeT::ASTNone, Box::new($1?), Box::new($3?)))
     }
     | 'MERGE' Lv6Id '(' 'TRUE' '->' Expression ')' '(' 'FALSE' '->' Expression ')' {
-        Ok(ASTExprT::ASTMerge($span, ASTTypeT::ASTNone, $2?, Box::new($6?), Box::new($11?)))
+        Ok(ASTExprT::ASTMerge($span, ASTTypeT::ASTNone, Box::new(ASTExprT::ASTVar($2?, ASTTypeT::ASTNone)), Box::new($6?), Box::new($11?)))
     }
     | '(' Expression ')' {
         $2

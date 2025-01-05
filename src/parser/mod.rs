@@ -71,7 +71,7 @@ pub enum ASTExprT {
     ASTGetElement(Span, ASTTypeT, Box<ASTExprT>, Box<ASTExprT>),
     ASTGetSlice(Span, ASTTypeT, Box<ASTExprT>, Box<ASTSelectT>),
     ASTList(Span, ASTTypeT, Box<Vec<ASTExprT>>),
-    ASTMerge(Span, ASTTypeT, Span, Box<ASTExprT>, Box<ASTExprT>),
+    ASTMerge(Span, ASTTypeT, Box<ASTExprT>, Box<ASTExprT>, Box<ASTExprT>),
 }
 
 #[derive(Debug, Clone)]
