@@ -4,11 +4,19 @@ use crate::compiler::{
         self, Equation, Expr, LustreProg, Node
     },
     utilityastlustre::{
-        self, build_base_cstate, build_equation, build_node, modify_height, number_vars, var_in
+        self, build_base_cstate, build_equation, build_node, modify_height, new_localvar, number_vars, type_cst, var_in
     }
 };
 
 use crate::transpile::{CLocalVar, CMemory, CProg, CState, CStep, CVar};
+
+use super::utilityastlustre::{is_fby, new_fbyvar, push_equ, type_expr};
+
+// TODO
+// anti dependency
+// check normalization
+// finish execution
+
 
 /* SYNTACTIC DEPENDENCY :
 the minimal requirement for a suitable computation order
@@ -117,100 +125,114 @@ pub fn assign_depths_aux(state: &CState, expr: &Expr, current_depth: i32) -> CSt
 
 /* ------------------------------------------------------------------------ */
 
-/*
 /* NORMALISATION PHASE
 source-to-source transformation which consists in extracting stateful
 computations that appear inside expressions */
 
 // transforms a node's body into a normalized body
 // and returns the node, as well as a CMemory of the created local variables
-pub fn normalize_body(node : &Node) -> (Node, CMemory) {
-    let (body, memory) = normalize_equations(&node.body);
-    (build_node(node.name.clone(),
+pub fn normalize_body(node : &Node) -> Node {
+    let body = normalize_equations(&node.body);
+    build_node(node.name.clone(),
     node.input.clone(),
     node.output.clone(),
     node.local_vars.clone(),
-    body),
-    build_mem(memory))
+    body)
 }
 
-pub fn normalize_equations(body : &Vec<Equation>) -> (Vec<Equation>, Vec<CLocalVar>) {
+pub fn normalize_equations(body : &Vec<Equation>) -> Vec<Equation> {
     let mut normed_equations = Vec::new();
-    let mut vars = Vec::new();
+    let mut nb_fby = 0;
+    let mut nb_equ = 0;
     for equ in body {
-        let (equations, local_vars) = normalize_equ(&equ, Vec::new());
+        let mut equations = normalize_equ(&equ, nb_equ);
+        equations.reverse();
         normed_equations.extend(equations);
-        vars.extend(local_vars);
-        // CHECK IF EXTEND IS AN OKAY FUNCTION
+        nb_equ = nb_equ+1;
     }
-    (normed_equations, vars)
+    normed_equations
 }
 
-pub fn normalize_equ(equ : &Equation, local_vars : Vec<CLocalVar>) -> (Vec<Equation>, Vec<CLocalVar>) {
-    match equ.expression{
-        //Expr::Eifthenelse(Box<Expr>, Box<Expr>, Box<Expr>),
-        //Expr::Earrow(Box<Expr>, Box<Expr>),
-        //Expr::Epre(Box<Expr>),
+// in paper : NormD
+// these all mirror the wanted list !!!!!!!!!!!!
+pub fn normalize_equ(equ : &Equation, nb_equ : i32) -> Vec<Equation> {
+    match &equ.expression{
         Expr::Efby(v, e) => {
-            let (normed_expr, local_vars) = normalize_expression_aux(&e, local_vars);
-            (build_equation(equ.var, Expr::Efby(v.clone(), Box::new(normed_expr))),
-            local_vars)
-        }
-        Expr::Emerge(_, _, _) => {
-            normalize_expression_merge(expr, local_vars)
-        } ,
-        //Expr::Ecall(s, vars) =>,
-        _ => normalize_expression_aux(expr, local_vars),
+            let vtype = equ.var.vtype.clone();
+            let fbyvar = new_fbyvar(nb_equ.try_into().unwrap(), vtype);
+            let (e, equs, _) = normalize_expression_aux(&e, &Vec::new(), nb_equ, 0);
+
+            let fbyexpr = Expr::Efby(v.clone(), Box::new(Expr::Evar(fbyvar.clone())));
+            // first, we push fbyvar = e
+            let equs = push_equ(equs, &fbyvar, e);
+            // then, we push equ.var = v fby fbyvar
+            push_equ(equs, &equ.var, fbyexpr)
+            // I JUST REALIZED THIS PUSHES IN THE WRONG ORDER
+            // TODO FIX !!
+        },
+        Expr::Ecall(_, _) => panic!(),
+        _ => {
+            let (e, equs, _) = normalize_expression_merge(&equ.expression, &Vec::new(), nb_equ, 0);
+            // push equ.var = e
+            push_equ(equs, &equ.var, e)
+        },
     }
 }
 
-pub fn normalize_expression_merge(expr : &Expr, local_vars : Vec<CLocalVar>) -> (Expr, Vec<Equation>, Vec<CLocalVar>) {
+// in paper : NormCA
+pub fn normalize_expression_merge(expr : &Expr, equs : &Vec<Equation>, nb_equ : i32, n : usize) -> (Expr, Vec<Equation>, usize) {
     match expr{
         Expr::Emerge(v,e1 ,e2 ) => {
-            let (normed_e1, local_vars) = normalize_expression_merge(e1, local_vars);
-            let (normed_e2, local_vars) = normalize_expression_merge(e2, local_vars);
-            (Expr::Emerge(v.clone(), Box::new(normed_e1), Box::new(normed_e2)), local_vars)
+            let (normed_e1, equs, n) = normalize_expression_merge(e1, equs, nb_equ, n);
+            let (normed_e2, equs, n) = normalize_expression_merge(e2, &equs, nb_equ, n);
+            (Expr::Emerge(v.clone(), Box::new(normed_e1), Box::new(normed_e2)),
+            equs, n)
         },
-        _ => normalize_expression_aux(expr, local_vars),
+        Expr::Ecall(_,_ ) => panic!(),
+        _ => normalize_expression_aux(expr, equs, nb_equ, n),
     }
 }
 
-pub fn normalize_expression_aux(expr : &Expr, local_vars : Vec<CLocalVar>) -> (Expr, Vec<Equation>, Vec<CLocalVar>) {
-    normalize_expression_nb(expr, local_vars, 0)
-}
-
-pub fn normalize_expression_nb(expr : &Expr, equations : Vec<Equation>, local_vars : Vec<CLocalVar>, n : usize) -> (Expr, Vec<Equation>, Vec<CLocalVar>, usize) {
+// in paper : NormE
+pub fn normalize_expression_aux(expr : &Expr, equs : &Vec<Equation>, nb_equ : i32, n : usize) -> (Expr, Vec<Equation>, usize) {
     match expr{
-        Expr::Econst(_) => (expr.clone(), equations, local_vars),
-        Expr::Evar(_) => (expr.clone(), equations, local_vars),
+        Expr::Econst(_) => (expr.clone(), equs.clone(), n),
+        Expr::Evar(_) => (expr.clone(), equs.clone(), n),
         Expr::Ebinop(b, e1, e2)=> {
-            let (normed_e1, equations, local_vars, n) = normalize_expression_nb(e1, equations, local_vars, n);
-            let (normed_e2, equations, local_vars, n) = normalize_expression_nb(e2, equations, local_vars, n);
+            let (normed_e1, equs, n) = normalize_expression_aux(e1, equs, nb_equ, n);
+            let (normed_e2, equs, n) = normalize_expression_aux(e2, &equs, nb_equ, n);
             (Expr::Ebinop(b.clone(), Box::new(normed_e1), Box::new(normed_e2)),
-            equations, local_vars, n)
+            equs, n)
         } ,
         Expr::Eunop(u, e)=> {
-            let (normed_e, equations, local_vars, n) = normalize_expression_nb(e, equations, local_vars, n);
+            let (normed_e, equs, n) = normalize_expression_aux(e, equs, nb_equ, n);
             (Expr::Eunop(u.clone(), Box::new(normed_e)),
-            equations, local_vars, n)
+            equs, n)
         },
-        //Expr::Eifthenelse(Box<Expr>, Box<Expr>, Box<Expr>),
-        //Expr::Earrow(Box<Expr>, Box<Expr>),
-        //Expr::Epre(Box<Expr>),
+        Expr::Ewhen(e, v) => {
+            let (normed_e, equs, n) = normalize_expression_aux(e, equs, nb_equ, n);
+            (Expr::Ewhen(Box::new(normed_e), v.clone()),
+            equs, n)
+        }
         Expr::Efby(v, e) => {
-            let (normed_e, equations, local_vars, n) = normalize_expression_nb(e, equations, local_vars, n);
-            let new_var = new_localcvar(n);
-            local_vars.push(new_var);
-            (Expr::Evar(new_var) )
+            let (normed_e, equs, n) = normalize_expression_aux(e, equs, nb_equ, n);
+            let new_var = new_localvar(n, nb_equ, type_expr(v));
+            // push new_var = v fby normed_e
+            let equs = push_equ(equs, &new_var, Expr::Efby(v.clone(), Box::new(normed_e)));
+            (Expr::Evar(new_var), equs, n+1)
         } ,
-        Expr::Ewhen(e, v) => todo!(),id
-        Expr::Emerge(v, e1, e2) => todo!(),
-        Expr::Ecall(s, vars) => todo!(),
-        _ => todo!()
+        Expr::Emerge(v, e1, e2) => {
+            let (normed_e1, equs, n) = normalize_expression_merge(e1, equs, nb_equ, n);
+            let (normed_e2, equs, n) = normalize_expression_merge(e2, &equs, nb_equ, n);
+            let new_var = new_localvar(n, nb_equ, type_expr(e1));
+            // push new_var = merge v normed_e1 normed_e2
+            let equs = push_equ(equs, &new_var, Expr::Emerge(v.clone(), Box::new(normed_e1), Box::new(normed_e2)));
+            (Expr::Evar(new_var), equs, n+1)
+        },
+        _ => normalize_expression_merge(expr, equs, nb_equ, n)
     }
-    // global pattern matching
 }
-*/
+
 
 /* ------------------------------------------------------------------------ */
 

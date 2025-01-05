@@ -1,9 +1,13 @@
 
 /* Utility functions for AST LUSTRE */
 
-use crate::{compiler::{astc::{self}, astlustre::{Equation, Expr, LocalVar, Node, Var}}, transpile::CState};
+use core::panic;
+
+use crate::{compiler::{astc::{self}, astlustre::{Equation, Expr, Node, Var}}, transpile::CState};
 
 use crate::transpile::{CProg, CVar, CVarRole};
+
+use super::astlustre::{Constant, Typ};
 
 pub fn build_node(name : String, input : Vec<Var>, output : Vec<Var>, local_vars : Vec<Var>, body : Vec<Equation>) -> Node {
     Node { name, input, output, local_vars, body}
@@ -15,7 +19,7 @@ pub fn build_equation(var : Var, expression : Expr) -> Equation {
 
 // Checks that two variables are equal
 pub fn eq_var(x: &Var, y: &Var) -> bool {
-    x.id == y.id
+    x.id == y.id && x.name == y.name
 }
 
 // Checks if a variable is in a vector
@@ -29,12 +33,16 @@ pub fn var_in(x: &Var, vars: &Vec<Var>) -> bool {
 }
 
 // Build a new local variable
-pub fn build_local_var(name : String, id : usize) -> LocalVar {
-    LocalVar { name, id }
+pub fn build_var(name : String, id : usize, vtype : Typ) -> Var {
+    Var { name, id, vtype }
 }
 
-pub fn new_localvar(id : usize) -> LocalVar {
-    build_local_var(format!("new_{}", id), id)
+pub fn new_localvar(id : usize, nb_equ : i32, vtype : Typ) -> Var {
+    build_var(format!("local_{}_{}", nb_equ, id), id, vtype)
+}
+
+pub fn new_fbyvar(id : usize, vtype : Typ) -> Var {
+    build_var(format!("fby_{}", id), id, vtype)
 }
 
 // Finds number of variables in a body
@@ -58,14 +66,45 @@ pub fn number_vars(node: &Node) -> usize {
     max_id
 }
 
-// Concatenate equations
-pub fn push_equ(past_equ : Vec<Equation>, v : Var, expr : Expr) -> Vec<Equation> {
+// push equation
+pub fn push_equ(past_equ : Vec<Equation>, v : &Var, expr : Expr) -> Vec<Equation> {
     let mut equations = past_equ.clone();
-    equations.push(build_equation(v, expr));
+    equations.push(build_equation(v.clone(), expr));
     equations
 }
 
+// check if an expression is an Efby
+pub fn is_fby(expr : &Expr) -> bool {
+    match expr{
+        Expr::Efby(_,_) => true,
+        _ => false,
+    }
+}
 
+// returns type of a constant
+pub fn type_cst(c : &Constant) -> Typ {
+    match c{
+        Constant::Cint(_) => Typ::Tint,
+        Constant::Cbool(_) => Typ::Tbool,
+        Constant::Cfloat(_)=> Typ::Treal,
+    }
+}
+
+// returns type of an expression
+pub fn type_expr(expr : &Expr) -> Typ {
+    match expr{
+        Expr::Econst(c) => type_cst(c),
+        Expr::Evar(v) => v.vtype.clone(),
+        Expr::Ebinop(_, e, _ )
+        | Expr::Eunop(_, e)
+        | Expr::Efby(e, _)
+        | Expr::Emerge(_, e, _)
+        | Expr::Ewhen(e, _)
+        => type_expr(e),
+        Expr::Ecall(_,_) => panic!(),
+        _ => panic!(),
+    }
+}
 
 
 
