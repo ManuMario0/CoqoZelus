@@ -1,21 +1,21 @@
-use crate::compiler::{
-    astc::{self, build_cprog, build_local_cvar, build_mem, empty_mem, new_localcvar},
+use std::ops::Not;
+
+use crate::{compiler::{
+    astc::{self, build_cprog, empty_step},
     astlustre::{
         self, Equation, Expr, LustreProg, Node
     },
     utilityastlustre::{
-        self, build_base_cstate, build_equation, build_node, modify_height, new_localvar, number_vars, type_cst, var_in
+        self, build_base_cprog, build_equation, build_node, modify_height, new_localvar, number_vars, type_cst, var_in
     }
-};
+}, transpile::{CVarRole, Cexpr}};
 
-use crate::transpile::{CLocalVar, CMemory, CProg, CState, CStep, CVar};
+use crate::transpile::{CProg, CState, CStep, CVar, Cinstruction};
 
-use super::utilityastlustre::{is_fby, new_fbyvar, push_equ, type_expr};
+use super::{astc::build_step, utilityastlustre::{contains_var, is_fby, new_fbyvar, push_equ, trans_var, translate_const, translate_var, type_expr, var_in_prog}};
 
 // TODO
 // anti dependency
-// check normalization
-// finish execution
 
 
 /* SYNTACTIC DEPENDENCY :
@@ -72,9 +72,7 @@ pub fn outside_of_pre(
             outside_of_pre(&y, &*e2, vars)
         }
         Expr::Epre(e1) => vars,
-        Expr::Efby(e1, e2) => {
-            outside_of_pre(&y, &*e1, vars)
-        }
+        Expr::Efby(c, e) => vars,
         Expr::Ewhen(e, _) => outside_of_pre(y, e, vars),
         Expr::Ecall(_, _) => vars, //TODO
     }
@@ -82,6 +80,7 @@ pub fn outside_of_pre(
 
 /* ------------------------------------------------------------------------- */
 
+/* 
 // builds the CState
 /*  the notable part is finding the depth of variables in the node */
 pub fn gather_cstate(node: &Node) -> CState {
@@ -122,7 +121,7 @@ pub fn assign_depths_aux(state: &CState, expr: &Expr, current_depth: i32) -> CSt
         Expr::Ecall(_, _) => todo!(),
     }
 }
-
+*/
 /* ------------------------------------------------------------------------ */
 
 /* NORMALISATION PHASE
@@ -140,6 +139,7 @@ pub fn normalize_body(node : &Node) -> Node {
     body)
 }
 
+// in paper : NormD, case D_1 and D_2
 pub fn normalize_equations(body : &Vec<Equation>) -> Vec<Equation> {
     let mut normed_equations = Vec::new();
     let mut nb_fby = 0;
@@ -214,11 +214,11 @@ pub fn normalize_expression_aux(expr : &Expr, equs : &Vec<Equation>, nb_equ : i3
             (Expr::Ewhen(Box::new(normed_e), v.clone()),
             equs, n)
         }
-        Expr::Efby(v, e) => {
+        Expr::Efby(c, e) => {
             let (normed_e, equs, n) = normalize_expression_aux(e, equs, nb_equ, n);
-            let new_var = new_localvar(n, nb_equ, type_expr(v));
+            let new_var = new_localvar(n, nb_equ, type_cst(c));
             // push new_var = v fby normed_e
-            let equs = push_equ(equs, &new_var, Expr::Efby(v.clone(), Box::new(normed_e)));
+            let equs = push_equ(equs, &new_var, Expr::Efby(c.clone(), Box::new(normed_e)));
             (Expr::Evar(new_var), equs, n+1)
         } ,
         Expr::Emerge(v, e1, e2) => {
@@ -237,32 +237,105 @@ pub fn normalize_expression_aux(expr : &Expr, equs : &Vec<Equation>, nb_equ : i3
 /* ------------------------------------------------------------------------ */
 
 /* TRANSLATION PHASE
-transform normalized node into an astc */
+transform normalized node into an astc 
+devided into two part : translate_vars and translate_step
 
-pub fn translate(node : &Node,
-    cstate : CState,
-    cmem : CMemory,
-    inputs : Vec<CVar>,
-    outputs : Vec<CVar>)
-    -> CProg {
-    todo!()
-    //build_cprog(cstate, cmem, inputs, outputs, translate_body(&node.body))
+
+NOTE : every trans_var call is an absurd amount of time wasted,
+    but the fix seems complicated*/
+
+/* -------------------- */
+
+// takes the node
+// and returns an incomplete CProg (with empty step field)
+pub fn translate_vars(node : &Node) -> CProg {
+    let mut prog = build_base_cprog(node);
+    for equ in &node.body {
+        match &equ.expression{
+            Expr::Efby(v,_ ) => {
+                prog.state.vars.push(translate_var(&equ.var, CVarRole::LocalVar, Some(v)))
+            }
+            _ => {}
+        }
+        if var_in_prog(&equ.var, &prog).not() {
+            prog.local_vars.push(translate_var(&equ.var, CVarRole::LocalVar, None));
+        }
+    }
+    prog
 }
 
-pub fn translate_eq(cstate : CState, cmem : CMemory, equation : &Equation) -> CProg {
-    todo!()
+/* -------------------- */
+
+// takes the node, and an incomplete CProg (with empty step field)
+// and returns a CProg with the steps
+pub fn translate_steps(node : &Node, mut prog : CProg) -> CProg {
+    prog.step = translate_eqlist(&node.body, &prog);
+    prog
 }
 
-pub fn translate_expression(cstate : CState, cmem : CMemory, expr: &Expr) -> CProg {
-    todo!()
+// in paper : TEqList
+pub fn translate_eqlist(equs : &Vec<Equation>, prog : &CProg) -> CStep {
+    let mut steps = empty_step();
+    for equ in equs {
+        let instruction = translate_eq(equ, prog);
+        steps.body.push(instruction)
+    }
+    steps
+}
+
+// in paper : TEq
+pub fn translate_eq(equ : &Equation, prog : &CProg) -> Cinstruction {
+    match &equ.expression{
+        Expr::Efby(_, e) => { // equ.var is in state
+            let trans_e = translate_expression(e, &prog);
+            Cinstruction::Cassign(trans_var(&equ.var, prog), trans_e)
+        },
+        Expr::Ecall(_, _) => panic!(),
+        _ => translate_assign(equ, &prog)
+    }
+}
+
+// in paper : TA
+pub fn translate_assign(equ : &Equation, prog : &CProg) -> Cinstruction {
+    match &equ.expression {
+        Expr::Emerge(v, e1 , e2 ) => {
+            let trans_equ1 = translate_assign(&build_equation(&equ.var, &e1), prog);
+            let trans_equ2 = translate_assign(&build_equation(&equ.var, &e2), prog);
+            Cinstruction::Ccase(trans_var(v, prog), Box::new(trans_equ1), Box::new(trans_equ2)) 
+        }
+        _ => {
+            let trans_expr = translate_expression(&equ.expression, &prog);
+            Cinstruction::Cassign(trans_var(&equ.var, prog), trans_expr)
+        }
+    }
+}
+
+// in paper : TE
+pub fn translate_expression(expr: &Expr, prog : &CProg) -> Cexpr {
+    match expr{
+        Expr::Econst(c) => Cexpr::Cconst(translate_const(c)),
+        Expr::Evar(v) => Cexpr::Cvar(trans_var(v, prog)),
+        Expr::Ebinop(b, e1 , e2 ) => {
+            let trans_e1 = translate_expression(e1, prog);
+            let trans_e2 = translate_expression(e2, prog);
+            Cexpr::Cbinop(b.clone(), Box::new(trans_e1), Box::new(trans_e2))
+        },
+        Expr::Eunop(u, e1  ) => {
+            let trans_e1 = translate_expression(e1, prog);
+            Cexpr::Cunop(u.clone(), Box::new(trans_e1))
+        }
+        Expr::Ewhen(e,v ) => {
+            let trans_e = translate_expression(e, prog);
+            Cexpr::Cwhen(Box::new(trans_e), trans_var(v, prog))
+        }
+        _ => todo!()
+    }
 }
 
 /* ------------------------------------------------------------------------ */
 
 // Takes a Lustre AST and translates it into a C AST
 pub fn compile(ast: LustreProg) -> CProg {
-    //let state = astc::empty_state();
     let node = ast.get(0).unwrap();
-    let state = gather_cstate(node);
-    build_cprog(state, empty_mem(), Vec::new(), Vec::new(), CStep { body: Vec::new() })
+    todo!()
 }
