@@ -97,7 +97,7 @@ impl PartialEq for ASTTypeT {
             (ASTTypeT::ASTBool, ASTTypeT::ASTBool) => true,
             (ASTTypeT::ASTInt, ASTTypeT::ASTInt) => true,
             (ASTTypeT::ASTReal, ASTTypeT::ASTReal) => true,
-            _ => false
+            _ => false,
         }
     }
 }

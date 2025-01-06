@@ -1,15 +1,14 @@
 const
-	x = 89.54;
+	w = 89.54;
 
 type
-	g = bool;
+	z = bool;
 
 const
 	g = 10;
 	h = 34;
 
-node MonJolieNoeudQueJaime (x, y: int) returns () ;
+node MonJolieNoeudQueJaime (x, y: int) returns (magic: int) ;
 let
-	x = 0;
-	y = g + x;
+	magic = 0 fby x;
 tel

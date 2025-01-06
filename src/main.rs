@@ -1,10 +1,12 @@
+use compiler::compile::compile;
 use parser::FileObj;
+use transpile::generate_c_code;
 use typing::{flatten_const, simplify_ast, type_ast};
 
-pub mod parser;
-mod typing;
-mod transpile;
 mod compiler;
+pub mod parser;
+mod transpile;
+mod typing;
 
 fn main() {
     match FileObj::new(
@@ -18,7 +20,12 @@ fn main() {
             println!("{:?}", obj.get_ast());
             let obj = flatten_const(obj).unwrap();
             println!("{:?}", obj.get_ast());
-            println!("{:?}", typing::translate(&obj).unwrap());
+            let ast = typing::translate(&obj).unwrap();
+            println!("{:?}", ast);
+            let c = compile(ast);
+            println!("{:?}", c);
+            let prog = generate_c_code(c);
+            println!("{prog}");
             assert!(true);
         }
         Err(e) => {
