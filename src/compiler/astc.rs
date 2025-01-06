@@ -6,23 +6,37 @@ use super::astlustre::Typ;
 
 // creates an empty CProg
 pub fn empty_cprog() -> CProg {
-    CProg{state : empty_state(),
-        inputs : Vec::new(),
-        outputs : Vec::new(),
-        local_vars : Vec::new(),
-        step : empty_step()}
+    CProg {
+        state: empty_state(),
+        inputs: Vec::new(),
+        outputs: Vec::new(),
+        local_vars: Vec::new(),
+        step: empty_step(),
+    }
 }
 
 // build a CProg
-pub fn build_cprog(state: CState, inputs : Vec<CVar>, outputs : Vec<CVar>, local_vars : Vec<CVar>, step: CStep) -> CProg {
-    CProg { state, inputs, outputs, local_vars, step }
+pub fn build_cprog(
+    state: CState,
+    inputs: Vec<CVar>,
+    outputs: Vec<CVar>,
+    local_vars: Vec<CVar>,
+    step: CStep,
+) -> CProg {
+    CProg {
+        state,
+        inputs,
+        outputs,
+        local_vars,
+        step,
+    }
 }
 
 // creates an empty state
 pub fn empty_state() -> CState {
     CState { vars: Vec::new() }
 }
-/* 
+/*
 //creates an empty memory
 pub fn empty_mem() -> CMemory {
     CMemory { vars: Vec::new() }
@@ -39,10 +53,9 @@ pub fn empty_step() -> CStep {
 }
 
 // builds a step
-pub fn build_step(body : Vec<Cinstruction>) -> CStep {
+pub fn build_step(body: Vec<Cinstruction>) -> CStep {
     CStep { body }
 }
-
 
 // build a cvar
 pub fn build_cvar(
@@ -63,7 +76,7 @@ pub fn build_cvar(
     }
 }
 
-/* 
+/*
 //build a local cvar with init value None
 pub fn build_local_cvar(name : String, vtype : Typ, id : usize) -> CLocalVar {
     CLocalVar { name, id, vtype, init_value: None }

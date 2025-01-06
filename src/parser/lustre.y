@@ -133,7 +133,7 @@ LeftItemList -> Result<Vec<ASTLeftItemT>, ()>:
 
 LeftItem -> Result<ASTLeftItemT, ()>:
     Lv6Id {
-        Ok(ASTLeftItemT::ASTVar($1?))
+        Ok(ASTLeftItemT::ASTVar(ASTNameT::ASTSpan($1?)))
     }
     | LeftItem '[' Expression ']' {
         Ok(ASTLeftItemT::ASTTableElement(Box::new($1?), $3?))
@@ -170,7 +170,7 @@ VarDecl -> Result<Vec<ASTVarT>, ()>:
         for v in $1? {
             res.push(
                 ASTVarT {
-                    name: v,
+                    name: ASTNameT::ASTSpan(v),
                     ttype: $3.clone()?
                 }
             )
@@ -290,7 +290,7 @@ Expression -> Result<ASTExprT, ()>:
         Ok(ASTExprT::ASTConst($span, ASTTypeT::ASTNone, $1?))
     }
     | Lv6Id {
-        Ok(ASTExprT::ASTVar($1?, ASTTypeT::ASTNone))
+        Ok(ASTExprT::ASTVar(ASTNameT::ASTSpan($1?), ASTTypeT::ASTNone))
     }
     | 'NOT' Expression {
         Ok(ASTExprT::ASTUnop($span, ASTTypeT::ASTNone, ASTNot, Box::new($2?)))
@@ -389,7 +389,7 @@ Expression -> Result<ASTExprT, ()>:
         Ok(ASTExprT::ASTGetSlice($span, ASTTypeT::ASTNone, Box::new($1?), Box::new($3?)))
     }
     | 'MERGE' Lv6Id '(' 'TRUE' '->' Expression ')' '(' 'FALSE' '->' Expression ')' {
-        Ok(ASTExprT::ASTMerge($span, ASTTypeT::ASTNone, Box::new(ASTExprT::ASTVar($2?, ASTTypeT::ASTNone)), Box::new($6?), Box::new($11?)))
+        Ok(ASTExprT::ASTMerge($span, ASTTypeT::ASTNone, Box::new(ASTExprT::ASTVar(ASTNameT::ASTSpan($2?), ASTTypeT::ASTNone)), Box::new($6?), Box::new($11?)))
     }
     | '(' Expression ')' {
         $2
@@ -433,11 +433,11 @@ Real -> Result<f64, ()>:
 
 ClockExpression -> Result<ASTExprT, ()>:
     Lv6Id {
-        Ok(ASTExprT::ASTVar($1?, ASTTypeT::ASTNone))
+        Ok(ASTExprT::ASTVar(ASTNameT::ASTSpan($1?), ASTTypeT::ASTNone))
         // Ok(ASTClockExprT::ASTPosClock($1?))
     }
     | 'NOT' Lv6Id {
-        Ok(ASTExprT::ASTUnop($span, ASTTypeT::ASTNone, ASTNot, Box::new(ASTExprT::ASTVar($2?, ASTTypeT::ASTNone))))
+        Ok(ASTExprT::ASTUnop($span, ASTTypeT::ASTNone, ASTNot, Box::new(ASTExprT::ASTVar(ASTNameT::ASTSpan($2?), ASTTypeT::ASTNone))))
         // Ok(ASTClockExprT::ASTNegClock($2?))
     }
 ;
@@ -468,7 +468,7 @@ Select -> Result<ASTSelectT, ()>:
     }
     | Lv6Id '.' '.' Expression {
         Ok(ASTSelectT {
-            start: ASTExprT::ASTVar($1?, ASTTypeT::ASTNone),
+            start: ASTExprT::ASTVar(ASTNameT::ASTSpan($1?), ASTTypeT::ASTNone),
             end: $4?,
             step: ASTExprT::ASTConst($span, ASTTypeT::ASTNone, ASTConstT::ASTInt(1)),
         })
@@ -490,7 +490,7 @@ Select -> Result<ASTSelectT, ()>:
     }
     | Lv6Id '.' '.' Expression 'STEP' Expression {
         Ok(ASTSelectT {
-            start: ASTExprT::ASTVar($1?, ASTTypeT::ASTNone),
+            start: ASTExprT::ASTVar(ASTNameT::ASTSpan($1?), ASTTypeT::ASTNone),
             end: $4?,
             step: $6?
         })
