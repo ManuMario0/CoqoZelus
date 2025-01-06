@@ -9,7 +9,7 @@ mod transpile;
 mod typing;
 
 fn main() {
-    match FileObj::new("/home/micol/Documents/M2MPRI/CoqoZelus/tests/test") {
+    match FileObj::new("tests/test") {
         Ok(obj) => {
             println!("{:?}", obj.get_ast());
             let obj = simplify_ast(obj).unwrap();

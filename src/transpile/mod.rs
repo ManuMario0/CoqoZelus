@@ -86,16 +86,16 @@ pub fn generate_c_code(ast: CProg) -> String {
     first we generate the structure holding the state
     TODO: check that we have to merge state and localvars later
     */
-    let state_struct = generate_state(ast.state.clone(), ast.local_vars);
+    let state_struct = generate_state(ast.state.clone(), [ast.local_vars, ast.outputs.clone()].concat());
 
     // generate init function
     let init = format!(
-        "void init(State *__state_0) {{\n{}}}\n\n",
+        "void init(State *__state) {{\n{}}}\n\n",
         generate_init(ast.state)
     );
 
     // then we generate the body of the function
-    let body = generate_body(ast.step);
+    let body = generate_body(ast.step, &ast.inputs);
 
     // now we just generate the outline of the step function
     // we will for now assume
@@ -105,11 +105,11 @@ pub fn generate_c_code(ast: CProg) -> String {
         prefix = format!("{prefix} {} {}, ", generate_type(i.vtype), i.name);
     }
     let r_name = r.name;
-    prefix = format!("{prefix} State *__state_0) {{\n");
+    prefix = format!("{prefix} State *__state) {{\n");
 
-    let suffix = format!("\treturn __state_0->{r_name};\n}}");
+    let suffix = format!("\treturn __state->{r_name};\n}}");
 
-    let macros = "#include<stlib.h>\n#include<stdbool.h>\n\n\n".to_string();
+    let macros = "#include<stdlib.h>\n#include<stdbool.h>\n\n\n".to_string();
     [macros, state_struct, init, prefix, body, suffix].concat()
 }
 
@@ -117,40 +117,42 @@ fn generate_init(s: CState) -> String {
     let mut res = "".to_string();
     for v in s.vars {
         match v.init_value {
-            Some(CConst::CCbool(b)) => res = format!("{res}\t__state_0->{} = {b}\n", v.name),
-            Some(CConst::CCint(i)) => res = format!("{res}\t__state_0->{} = {i}\n", v.name),
-            Some(CConst::CCfloat(f)) => res = format!("{res}\t__state_0->{} = {f}\n", v.name),
+            Some(CConst::CCbool(b)) => res = format!("{res}\t__state->{} = {b};\n", v.name),
+            Some(CConst::CCint(i)) => res = format!("{res}\t__state->{} = {i};\n", v.name),
+            Some(CConst::CCfloat(f)) => res = format!("{res}\t__state->{} = {f};\n", v.name),
             None => (),
         }
     }
     res
 }
 
-fn generate_body(step: CStep) -> String {
+fn generate_body(step: CStep, iv: &Vec<CVar>) -> String {
     let mut res = "".to_string();
     for v in step.body {
-        res = format!("{res}\t{};\n", generate_instruction(v))
+        res = format!("{res}\t{}\n", generate_instruction(v, iv))
     }
     res
 }
 
-fn generate_instruction(i: Cinstruction) -> String {
+fn generate_instruction(i: Cinstruction, iv: &Vec<CVar>) -> String {
     match i {
         Cinstruction::Cassign(cvar, cexpr) => {
-            let expr = generate_expr(cexpr);
+            let expr = generate_expr(cexpr, iv);
+            let prefix = get_prefix(&cvar, iv);
             let var = cvar.name;
-            format!("__state_0->{var} = {expr}")
+            format!("{prefix}{var} = {expr};")
         }
         Cinstruction::Ccase(cvar, cinstruction, cinstruction1) => {
-            let expr1 = generate_instruction(*cinstruction);
-            let expr2 = generate_instruction(*cinstruction1);
+            let expr1 = generate_instruction(*cinstruction, iv);
+            let expr2 = generate_instruction(*cinstruction1, iv);
+            let prefix = get_prefix(&cvar, iv);
             let var = cvar.name;
-            format!("if (__state_0->{var}) {{\n{expr1}}} else {{\n{expr2}}}")
+            format!("if ({prefix}{var}) {{\n{expr1}}} else {{\n{expr2}}}")
         }
     }
 }
 
-fn generate_expr(expr: Cexpr) -> String {
+fn generate_expr(expr: Cexpr, iv: &Vec<CVar>) -> String {
     match expr {
         Cexpr::Cconst(cconst) => match cconst {
             CConst::CCint(i) => format!("{i}"),
@@ -164,30 +166,35 @@ fn generate_expr(expr: Cexpr) -> String {
             CConst::CCfloat(f) => format!("{f}"),
         },
         Cexpr::Cvar(caccess_var) => {
-            format!("__state_0->{}", caccess_var.name)
+            let prefix = get_prefix(&caccess_var, iv);
+            format!("{prefix}{}", caccess_var.name)
         }
         Cexpr::Cbinop(binop, cexpr, cexpr1) => {
             format!(
                 "({} {} {})",
-                generate_expr(*cexpr1),
+                generate_expr(*cexpr1, iv),
                 generate_binop(binop),
-                generate_expr(*cexpr)
+                generate_expr(*cexpr, iv)
             )
         }
         Cexpr::Cunop(unop, cexpr) => {
-            format!("({} {})", generate_unop(unop), generate_expr(*cexpr))
+            format!("({} {})", generate_unop(unop), generate_expr(*cexpr, iv))
         }
         Cexpr::Cwhen(cexpr, cvar) => match cvar {
-            BoolCVar::True(cvar) => format!(
-                "if (__state_0->{}) {{\n {}}}",
-                cvar.name,
-                generate_expr(*cexpr)
-            ),
-            BoolCVar::False(cvar) => format!(
-                "if (!__state_0->{}) {{\n {}}}",
-                cvar.name,
-                generate_expr(*cexpr)
-            ),
+            BoolCVar::True(cvar) => {
+                let prefix = get_prefix(&cvar, iv);
+                format!(
+                "{}",
+                generate_expr(*cexpr, iv)
+            )}
+            ,
+            BoolCVar::False(cvar) => {
+                let prefix = get_prefix(&cvar, iv);
+                format!(
+                "{}",
+                generate_expr(*cexpr, iv)
+            )
+        },
         },
     }
 }
@@ -240,4 +247,14 @@ fn generate_type(t: Typ) -> String {
         Typ::Treal => "double".to_string(),
         Typ::Tvec(_, typ) => todo!(),
     }
+}
+
+fn get_prefix(v: &CVar, iv: &Vec<CVar>) -> String {
+    let name = &v.name;
+    for potential_var in iv {
+        if *name == *potential_var.name {
+            return "".to_string();
+        }
+    }
+    return "__state->".to_string()
 }
