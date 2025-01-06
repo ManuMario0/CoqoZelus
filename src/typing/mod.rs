@@ -1,9 +1,12 @@
-use std::{collections::{HashMap, HashSet}, vec};
+use core::panic;
+use std::{collections::{HashMap, HashSet}, u64, vec};
 
 mod typing;
 mod flattener;
 use typing::*;
 use flattener::*;
+
+use crate::compiler::astlustre::{self, Unop};
 
 /// The point of this mod will be, in a first approximation,
 /// to not type but simply extend constants and remove types.
@@ -57,7 +60,232 @@ pub fn simplify_ast<'a>(mut obj: FileObj<'a, 'a>) -> Result<FileObj<'a, 'a>, ()>
     Ok(obj)
 }
 
-pub fn simplify_decl(a: ASTOneDeclT) -> ASTOneDeclT {
+pub fn translate<'a>(obj: &FileObj<'a, 'a>) -> Result<astlustre::LustreProg, ()> {
+    // now, everything should be type checked and faltten so we can just
+    // crash whenever we have something unexpecterd as it should not happened
+
+    let ast = obj.get_ast();
+    let mut res = Vec::with_capacity(ast.len());
+
+    let mut id = 0;
+    let mut id_map = HashMap::new();
+
+    for a in ast {
+        match a {
+            ASTOneDeclT::ASTNodeDecl(n) => {
+                let node = astlustre::Node {
+                    name: obj.span_str(n.name),
+                    input: n.params.iter().map(|v| translate_var(obj, v, &mut id, &mut id_map)).collect(),
+                    output: n.returns.iter().map(|v| translate_var(obj, v, &mut id, &mut id_map)).collect(),
+                    local_vars: n.localVars.iter().map(|v| translate_var(obj, v, &mut id, &mut id_map)).collect(),
+                    body: n.body.iter().map(|e| translate_equation(obj, e, &id_map)).collect(),
+                };
+                res.push(node);
+            },
+            _ => return Err(()),
+        }
+    }
+
+    Ok(res)
+}
+
+fn translate_var<'a>(obj: &FileObj<'a, 'a>, v: &ASTVarT, id: &mut usize, map: &mut HashMap<String, astlustre::Var>) -> astlustre::Var {
+    *id += 1;
+    let name = obj.span_str(v.name);
+    let var = astlustre::Var {
+        name: name.clone(),
+        id: *id,
+        vtype: translate_type(&v.ttype),
+    };
+    map.insert(name, var.clone());
+    var
+}
+
+fn translate_type(t: &ASTTypeT) -> astlustre::Typ {
+    match t {
+        ASTTypeT::ASTNone => panic!(),
+        ASTTypeT::ASTBool => astlustre::Typ::Tbool,
+        ASTTypeT::ASTInt => astlustre::Typ::Tint,
+        ASTTypeT::ASTReal => astlustre::Typ::Treal,
+        ASTTypeT::ASTLabel(_) => panic!(),
+        ASTTypeT::ASTVec(_, _) => panic!(),
+    }
+}
+
+fn translate_equation<'a>(obj: &FileObj<'a, 'a>, e: &ASTEquationT, map: &HashMap<String, astlustre::Var>) -> astlustre::Equation {
+    // translate lhs
+    let var_name = match &e.lhs {
+        ASTLeftT::ASTAssert() => todo!(),
+        ASTLeftT::ASTLeftItem(vec) => {
+            match vec[0] {
+                ASTLeftItemT::ASTVar(span) => {
+                    obj.span_str(span)
+                },
+                _ => todo!()
+            }
+        },
+    };
+    let var = map.get(&var_name).unwrap();
+
+    // now rhs
+    let expression = translate_expr(obj, &e.rhs, map);
+
+    astlustre::Equation {
+        var: var.clone(),
+        expression,
+    }
+}
+
+fn translate_expr<'a>(obj: &FileObj<'a, 'a>, e: &ASTExprT, map: &HashMap<String, astlustre::Var>) -> astlustre::Expr {
+    match e {
+        ASTExprT::ASTConst(_, _, astconst_t) => {
+            match astconst_t {
+                ASTConstT::ASTBool(b) => astlustre::Expr::Econst(astlustre::Constant::Cbool(*b)),
+                ASTConstT::ASTInt(i) => astlustre::Expr::Econst(astlustre::Constant::Cint(*i as i32)),
+                ASTConstT::ASTReal(r) => astlustre::Expr::Econst(astlustre::Constant::Cfloat(*r as f32)),
+            }
+        },
+        ASTExprT::ASTVar(s, _) => {
+            let var_name = obj.span_str(*s);
+            astlustre::Expr::Evar(map.get(&var_name).unwrap().clone())
+        },
+        ASTExprT::ASTUnop(_, _, unop, astexpr_t) => {
+            match unop {
+                ASTUnopT::ASTNot => astlustre::Expr::Eunop(Unop::Unot, Box::new(translate_expr(obj, &astexpr_t, map))),
+                ASTUnopT::ASTMinus => astlustre::Expr::Eunop(Unop::Uneg, Box::new(translate_expr(obj, &astexpr_t, map))),
+                ASTUnopT::ASTPre => astlustre::Expr::Epre(Box::new(translate_expr(obj, &astexpr_t, map))),
+                ASTUnopT::ASTCurrent => todo!(),
+                ASTUnopT::ASTInt => todo!(),
+                ASTUnopT::ASTReal => todo!(),
+            }
+        },
+        ASTExprT::ASTBinop(_, _, binop, astexpr_t, astexpr_t1) => {
+            match binop {
+                ASTBinopT::ASTWhen => {
+                    let var = match **astexpr_t1 {
+                        ASTExprT::ASTVar(span, _) => {
+                            map.get(&obj.span_str(span)).unwrap()
+                        },
+                        _ => panic!(),
+                    };
+                    astlustre::Expr::Ewhen(Box::new(translate_expr(obj, astexpr_t, map)), var.clone())
+                },
+                ASTBinopT::ASTFby =>
+                    astlustre::Expr::Efby(
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTArrow => 
+                    astlustre::Expr::Earrow(
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTAnd => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Band,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTOr => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bor,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTXor => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bxor,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTImpl => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bimpl,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTEq => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Beq,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTNeq => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bneq,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTLt => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bl,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTLe => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bleq,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTGt => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bg,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTGe => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bgeq,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTDiv => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bdiv,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTMod => todo!(),
+                ASTBinopT::ASTSub => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bsub,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTAdd => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bmul,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTMul => 
+                    astlustre::Expr::Ebinop(
+                        astlustre::Binop::Bmul,
+                        Box::new(translate_expr(obj, astexpr_t, map)), 
+                        Box::new(translate_expr(obj, astexpr_t1, map))
+                    ),
+                ASTBinopT::ASTConcat => todo!(),
+            }
+        },
+        ASTExprT::ASTIfThenElse(_, _, astexpr_t, astexpr_t1, astexpr_t2) => todo!(),
+        ASTExprT::ASTFuncCall(_, _) => todo!(),
+        ASTExprT::ASTVec(_, _, vec) => todo!(),
+        ASTExprT::ASTPow(_, _, astexpr_t, astexpr_t1) => todo!(),
+        ASTExprT::ASTGetElement(_, _, astexpr_t, astexpr_t1) => todo!(),
+        ASTExprT::ASTGetSlice(_, _, astexpr_t, astselect_t) => todo!(),
+        ASTExprT::ASTList(_, _, vec) => todo!(),
+        ASTExprT::ASTMerge(_, _, astexpr_t, astexpr_t1, astexpr_t2) => {
+            todo!()/*astlustre::Expr::Emerge(
+                astlustre::Binop::Band,
+                Box::new(translate_expr(obj, astexpr_t, map)), 
+                Box::new(translate_expr(obj, astexpr_t1, map))
+            ),*/
+        },
+    }
+}
+
+fn simplify_decl(a: ASTOneDeclT) -> ASTOneDeclT {
     match a {
         ASTOneDeclT::ASTNodeDecl(astnode_decl_t) => {
             let params = astnode_decl_t.params;

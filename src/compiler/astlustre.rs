@@ -8,6 +8,7 @@ use crate::transpile::{self, CProg, CVar, CVarRole};
 pub type LustreProg = Vec<Node>;
 
 // nodes
+#[derive(Debug)]
 pub struct Node {
     pub name: String,
     pub input: Vec<Var>,
@@ -17,7 +18,7 @@ pub struct Node {
 }
 
 // equations (body of the functions)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Equation {
     pub var: Var,
     pub expression: Expr,
@@ -27,7 +28,7 @@ pub struct Equation {
 // Ecall is a function call on a vector of variables of the size of its input
 // but let's not worry about that for now
 // MERGE(var, true case, false case)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Expr {
     Econst(Constant),
     Evar(Var),
@@ -42,7 +43,7 @@ pub enum Expr {
     Ecall(String, Vec<Var>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 // types
 pub enum Typ {
     Tint,
@@ -52,7 +53,7 @@ pub enum Typ {
 }
 
 // variables
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Var {
     pub name: String,
     pub id: usize,
@@ -60,7 +61,7 @@ pub struct Var {
 }
 
 // constants
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Constant {
     Cint(i32),
     Cbool(bool),
@@ -68,7 +69,7 @@ pub enum Constant {
 }
 
 // binary operations (excepted fby and arrow)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Binop {
     Badd,
     Bsub,
@@ -87,7 +88,7 @@ pub enum Binop {
 }
 
 // unary operations (excepted pre)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Unop {
     Uneg,
     Unot,

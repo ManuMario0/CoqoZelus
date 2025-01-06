@@ -14,9 +14,11 @@ fn main() {
             println!("{:?}", obj.get_ast());
             let obj = simplify_ast(obj).unwrap();
             println!("{:?}", obj.get_ast());
-            let obj =  type_ast(obj).unwrap();
+            let obj = type_ast(obj).unwrap();
             println!("{:?}", obj.get_ast());
-            println!("{:?}", flatten_const(obj).unwrap().get_ast());
+            let obj = flatten_const(obj).unwrap();
+            println!("{:?}", obj.get_ast());
+            println!("{:?}", typing::translate(&obj).unwrap());
             assert!(true);
         }
         Err(e) => {
