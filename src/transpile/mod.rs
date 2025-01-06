@@ -46,6 +46,7 @@ pub enum Cexpr {
     Cwhen(Box<Cexpr>, BoolCVar),
 }
 
+#[derive(Clone, Debug)]
 pub enum BoolCVar {
     True(CVar),
     False(CVar),
@@ -177,7 +178,10 @@ fn generate_expr(expr: Cexpr) -> String {
             format!("({} {})", generate_unop(unop), generate_expr(*cexpr))
         }
         Cexpr::Cwhen(cexpr, cvar) => {
-            format!("if ({}) {{\n {}}}", cvar.name, generate_expr(*cexpr))
+            match cvar {
+                BoolCVar::True(cvar) => format!("if (__state_0->{}) {{\n {}}}", cvar.name, generate_expr(*cexpr)),
+                BoolCVar::False(cvar) => format!("if (!__state_0->{}) {{\n {}}}", cvar.name, generate_expr(*cexpr)),
+            }
         }
     }
 }

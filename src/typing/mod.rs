@@ -195,10 +195,17 @@ fn translate_expr<'a>(
         ASTExprT::ASTBinop(_, _, binop, astexpr_t, astexpr_t1) => match binop {
             ASTBinopT::ASTWhen => {
                 let var = match *astexpr_t1.to_owned() {
-                    ASTExprT::ASTVar(span, _) => map.get(&span.clone().get_name(obj)).unwrap(),
+                    ASTExprT::ASTVar(span, _) => astlustre::BoolVar::True(map.get(&span.clone().get_name(obj)).unwrap().clone()),
+                    ASTExprT::ASTUnop(_, _, ASTUnopT::ASTNot, expr) => {
+                        match *expr {
+                            ASTExprT::ASTVar(span, _) =>
+                                astlustre::BoolVar::False(map.get(&span.clone().get_name(obj)).unwrap().clone()),
+                            _ => panic!(),
+                        }
+                    },
                     _ => panic!(),
                 };
-                astlustre::Expr::Ewhen(Box::new(translate_expr(obj, astexpr_t, map)), var.clone())
+                astlustre::Expr::Ewhen(Box::new(translate_expr(obj, astexpr_t, map)), var)
             }
             ASTBinopT::ASTFby => match **astexpr_t {
                 ASTExprT::ASTConst(_, _, ASTConstT::ASTBool(b)) => astlustre::Expr::Efby(
