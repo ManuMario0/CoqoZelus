@@ -1,0 +1,4 @@
+node full_add_h() returns (s : bool);
+let
+  s = false fby (neg s);
+tel;

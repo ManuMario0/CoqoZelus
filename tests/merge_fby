@@ -1,0 +1,5 @@
+node full_add_h(o, k, z : int, c : bool) returns (s : bool);
+let
+    z = ((((4 fby o) ∗ 3) when True(c)) + k);
+    o = (merge c (True → (5 fby (z + 1)) + 2) (False → ((6 fby z)) when False(c)));
+tel;
