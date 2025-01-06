@@ -177,12 +177,18 @@ fn generate_expr(expr: Cexpr) -> String {
         Cexpr::Cunop(unop, cexpr) => {
             format!("({} {})", generate_unop(unop), generate_expr(*cexpr))
         }
-        Cexpr::Cwhen(cexpr, cvar) => {
-            match cvar {
-                BoolCVar::True(cvar) => format!("if (__state_0->{}) {{\n {}}}", cvar.name, generate_expr(*cexpr)),
-                BoolCVar::False(cvar) => format!("if (!__state_0->{}) {{\n {}}}", cvar.name, generate_expr(*cexpr)),
-            }
-        }
+        Cexpr::Cwhen(cexpr, cvar) => match cvar {
+            BoolCVar::True(cvar) => format!(
+                "if (__state_0->{}) {{\n {}}}",
+                cvar.name,
+                generate_expr(*cexpr)
+            ),
+            BoolCVar::False(cvar) => format!(
+                "if (!__state_0->{}) {{\n {}}}",
+                cvar.name,
+                generate_expr(*cexpr)
+            ),
+        },
     }
 }
 
