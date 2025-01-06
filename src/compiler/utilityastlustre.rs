@@ -34,7 +34,7 @@ pub fn build_equation(var: &Var, expression: &Expr) -> Equation {
 
 // Checks that two variables are equal
 pub fn eq_var(x: &Var, y: &Var) -> bool {
-    x.id == y.id && x.name == y.name
+    x.name == y.name
 }
 
 // Checks if a variable is in a vector
@@ -208,7 +208,7 @@ pub fn outside_of_pre(expr: &Expr, mut vars: Vec<Var>) -> Vec<Var> {
 
 // Checks that a variable in lustre (Var) is eq to a variable in C (CVar)
 pub fn eq_var_lc(vl: &Var, vc: &CVar) -> bool {
-    vl.id == vc.id && vl.name == vc.name
+    vl.name == vc.name
 }
 
 // Given a state and the variable,
