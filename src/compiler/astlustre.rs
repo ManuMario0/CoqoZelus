@@ -8,7 +8,7 @@ use crate::transpile::{self, CProg, CVar, CVarRole};
 pub type LustreProg = Vec<Node>;
 
 // nodes
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Node {
     pub name: String,
     pub input: Vec<Var>,
@@ -17,7 +17,7 @@ pub struct Node {
     pub body: Vec<Equation>,
 }
 
-// equations (body of the functions)
+// equations (body of the functions) var = expression
 #[derive(Clone, Debug)]
 pub struct Equation {
     pub var: Var,
@@ -37,7 +37,7 @@ pub enum Expr {
     Eifthenelse(Box<Expr>, Box<Expr>, Box<Expr>),
     Earrow(Box<Expr>, Box<Expr>),
     Epre(Box<Expr>),
-    Efby(Box<Expr>, Box<Expr>),
+    Efby(Constant, Box<Expr>),
     Ewhen(Box<Expr>, Var),
     Emerge(Var, Box<Expr>, Box<Expr>),
     Ecall(String, Vec<Var>),

@@ -1,0 +1,4 @@
+node full_add_h(x : bool, a, b : int) returns (s : int);
+let
+  s = merge(x a b);
+tel;

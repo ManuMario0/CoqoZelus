@@ -7,21 +7,12 @@ use crate::compiler::astlustre::{Unop, Binop, Typ};
 
 
 // the C program
-// state is the struct
-// memory are the local variables made during normalization
-// step is the function step
-// I WILL REMOVE INPUTS AND OUTPUTS IN FINAL VERSION
 pub struct CProg {
     pub state: CState,
-    pub memory : CMemory,
     pub inputs : Vec<CVar>,
     pub outputs : Vec<CVar>,
+    pub local_vars : Vec<CVar>,
     pub step: CStep,
-}
-
-#[derive(Clone)]
-pub struct CMemory {
-    pub vars: Vec<CLocalVar>
 }
 
 // A state is made up of variables
@@ -33,28 +24,23 @@ pub struct CState {
 // A step of the state is a function that takes its inputs
 // executes its body and returns the next state
 pub struct CStep {
-    //inputs : Vec<CVar>,
-    pub body: Vec<Cexpr>,
+    pub body: Vec<Cinstruction>,
+}
+
+pub enum Cinstruction {
+    Cassign(CVar, Cexpr),
+    Ccase(CVar, Box<Cinstruction>, Box<Cinstruction>),
 }
 
 // expressions
 // CASE(var, true case, false case)
 pub enum Cexpr {
     Cconst(CConst),
-    Cvar(CAccessVar),
-    Clocvar(CLocalVar),
-    Cassign(CVar, Box<Cexpr>),
+    Cvar(CVar),
+    //Clocvar(CLocalVar),
     Cbinop(Binop, Box<Cexpr>, Box<Cexpr>),
     Cunop(Unop, Box<Cexpr>),
     Cwhen(Box<Cexpr>, CVar),
-    Ccase(CVar, Box<Cexpr>, Box<Cexpr>),
-}
-
-// access to a variable in a program
-// contains the additional info of which depth needs to be accessed
-pub struct CAccessVar {
-    pub var: CVar,
-    pub depth: i32,
 }
 
 // variables
@@ -67,14 +53,6 @@ pub struct CVar {
     pub vtype: Typ,
     pub depth: i32,
     pub role: CVarRole,
-    pub init_value: Option<CConst>,
-}
-
-#[derive(Clone)]
-pub struct CLocalVar {
-    pub name: String,
-    pub id : usize,
-    pub vtype : Typ,
     pub init_value: Option<CConst>,
 }
 
@@ -94,7 +72,7 @@ pub enum CConst {
     CCfloat(f32),
 }
 
-
+/*
 pub fn generate_c_code(ast: CProg) -> String {
     // first we generate the structure holding the state
     let state_struct = generate_state(ast.state, ast.memory);
@@ -211,3 +189,4 @@ fn generate_type(t: Typ) -> String {
         Typ::Tvec(_, typ) => todo!(),
     }
 }
+    */

@@ -1,19 +1,28 @@
 /* Utility functions for C syntactic tree */
 
-use crate::transpile::{CMemory, CState, CProg, CLocalVar, Cexpr, CStep, CVarRole, CVar, CAccessVar, CConst};
+use crate::transpile::{CConst, CProg, CState, CStep, CVar, CVarRole, Cexpr, Cinstruction};
 
 use super::astlustre::Typ;
 
+// creates an empty CProg
+pub fn empty_cprog() -> CProg {
+    CProg{state : empty_state(),
+        inputs : Vec::new(),
+        outputs : Vec::new(),
+        local_vars : Vec::new(),
+        step : empty_step()}
+}
+
 // build a CProg
-pub fn build_cprog(state: CState, memory : CMemory, inputs : Vec<CVar>, outputs : Vec<CVar>, step: CStep) -> CProg {
-    CProg { state, memory, step, inputs, outputs }
+pub fn build_cprog(state: CState, inputs : Vec<CVar>, outputs : Vec<CVar>, local_vars : Vec<CVar>, step: CStep) -> CProg {
+    CProg { state, inputs, outputs, local_vars, step }
 }
 
 // creates an empty state
 pub fn empty_state() -> CState {
     CState { vars: Vec::new() }
 }
-
+/* 
 //creates an empty memory
 pub fn empty_mem() -> CMemory {
     CMemory { vars: Vec::new() }
@@ -22,11 +31,15 @@ pub fn empty_mem() -> CMemory {
 // builds a memory
 pub fn build_mem(vars : Vec<CLocalVar>) -> CMemory {
     CMemory { vars }
+}*/
+
+// creates an empty step
+pub fn empty_step() -> CStep {
+    CStep { body: Vec::new() }
 }
 
 // builds a step
-
-pub fn build_step(body : Vec<Cexpr>) -> CStep {
+pub fn build_step(body : Vec<Cinstruction>) -> CStep {
     CStep { body }
 }
 
@@ -50,6 +63,7 @@ pub fn build_cvar(
     }
 }
 
+/* 
 //build a local cvar with init value None
 pub fn build_local_cvar(name : String, vtype : Typ, id : usize) -> CLocalVar {
     CLocalVar { name, id, vtype, init_value: None }
@@ -60,12 +74,12 @@ pub fn new_localcvar(vtype : Typ, id : usize) -> CLocalVar {
     build_local_cvar(format!("new_{}", id), vtype , id)
 }
 
-// checks that two cvariables are equal
-pub fn eq_var(x: &CVar, y: &CVar) -> bool {
-    x.id == y.id
-}
-
 // builds an Access Var
 pub fn build_access_var(var: CVar, depth: i32) -> CAccessVar {
     CAccessVar { var, depth }
+}*/
+
+// checks that two cvariables are equal
+pub fn eq_var_c(x: &CVar, y: &CVar) -> bool {
+    x.id == y.id && x.name == y.name
 }
