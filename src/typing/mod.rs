@@ -288,7 +288,7 @@ fn translate_expr<'a>(
                 Box::new(translate_expr(obj, astexpr_t1, map)),
             ),
             ASTBinopT::ASTAdd => astlustre::Expr::Ebinop(
-                astlustre::Binop::Bmul,
+                astlustre::Binop::Badd,
                 Box::new(translate_expr(obj, astexpr_t, map)),
                 Box::new(translate_expr(obj, astexpr_t1, map)),
             ),
