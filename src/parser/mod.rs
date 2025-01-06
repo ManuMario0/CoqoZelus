@@ -61,7 +61,7 @@ pub enum ASTBinopT {
 #[derive(Debug, Clone)]
 pub enum ASTNameT {
     ASTSpan(Span),
-    ASTString(String)
+    ASTString(String),
 }
 
 impl ASTNameT {

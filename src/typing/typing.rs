@@ -122,7 +122,10 @@ pub fn type_decl(
                                         }
                                     }
                                     None => {
-                                        obj.print_error_message(span.clone().get_span(), "Variable does not exists");
+                                        obj.print_error_message(
+                                            span.clone().get_span(),
+                                            "Variable does not exists",
+                                        );
                                         panic!()
                                     }
                                 }

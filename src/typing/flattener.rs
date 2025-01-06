@@ -65,7 +65,8 @@ pub fn remove_const(
                                             });
                                         }
                                         None => {
-                                            let ((line, col), _) = obj.line_col(span.clone().get_span());
+                                            let ((line, col), _) =
+                                                obj.line_col(span.clone().get_span());
                                             println!("{name} : this symbol does not exists : line {line} col {col}");
                                             panic!()
                                         }

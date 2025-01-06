@@ -1,6 +1,8 @@
 use core::panic;
 use std::{
-    collections::{HashMap, HashSet}, sync::mpsc::TryRecvError, u64, vec
+    collections::{HashMap, HashSet},
+    sync::mpsc::TryRecvError,
+    u64, vec,
 };
 
 mod flattener;
@@ -299,12 +301,11 @@ fn translate_expr<'a>(
         ASTExprT::ASTList(_, _, vec) => todo!(),
         ASTExprT::ASTMerge(_, _, astexpr_t, astexpr_t1, astexpr_t2) => {
             match *astexpr_t.to_owned() {
-                ASTExprT::ASTVar(s, _) => {
-                    astlustre::Expr::Emerge(
-                        map.get(&s.get_name(obj)).unwrap().clone(),
-                        Box::new(translate_expr(obj, astexpr_t1, map)), 
-                        Box::new(translate_expr(obj, astexpr_t2, map)))
-                },
+                ASTExprT::ASTVar(s, _) => astlustre::Expr::Emerge(
+                    map.get(&s.get_name(obj)).unwrap().clone(),
+                    Box::new(translate_expr(obj, astexpr_t1, map)),
+                    Box::new(translate_expr(obj, astexpr_t2, map)),
+                ),
                 _ => panic!(),
             }
         }
@@ -319,13 +320,27 @@ fn simplify_decl(a: ASTOneDeclT) -> ASTOneDeclT {
             let mut locals = astnode_decl_t.localVars;
             locals.push(ASTVarT {
                 name: ASTNameT::ASTString("__true_then_false__".to_string()),
-                ttype: ASTTypeT::ASTBool
+                ttype: ASTTypeT::ASTBool,
             });
             let prefix_eq = vec![ASTEquationT {
-                lhs: ASTLeftT::ASTLeftItem(vec![ASTLeftItemT::ASTVar(ASTNameT::ASTString("__true_then_false__".to_string()))]),
-                rhs: ASTExprT::ASTBinop(Span::new(0, 0), ASTTypeT::ASTBool, ASTBinopT::ASTFby, 
-                Box::new(ASTExprT::ASTConst(Span::new(0, 0), ASTTypeT::ASTBool, ASTConstT::ASTBool(true))), 
-                Box::new(ASTExprT::ASTConst(Span::new(0, 0), ASTTypeT::ASTBool, ASTConstT::ASTBool(false))))
+                lhs: ASTLeftT::ASTLeftItem(vec![ASTLeftItemT::ASTVar(ASTNameT::ASTString(
+                    "__true_then_false__".to_string(),
+                ))]),
+                rhs: ASTExprT::ASTBinop(
+                    Span::new(0, 0),
+                    ASTTypeT::ASTBool,
+                    ASTBinopT::ASTFby,
+                    Box::new(ASTExprT::ASTConst(
+                        Span::new(0, 0),
+                        ASTTypeT::ASTBool,
+                        ASTConstT::ASTBool(true),
+                    )),
+                    Box::new(ASTExprT::ASTConst(
+                        Span::new(0, 0),
+                        ASTTypeT::ASTBool,
+                        ASTConstT::ASTBool(false),
+                    )),
+                ),
             }];
             let mut res = Vec::with_capacity(astnode_decl_t.body.len());
             for e in astnode_decl_t.body {
@@ -395,26 +410,39 @@ fn simplify_expr(expr: ASTExprT) -> ASTExprT {
             Box::new(simplify_expr(*expr1)),
             Box::new(simplify_expr(*expr2)),
         ),
-        ASTExprT::ASTIfThenElse(a, b, astexpr_t, astexpr_t1, astexpr_t2) =>
-            ASTExprT::ASTMerge(
+        ASTExprT::ASTIfThenElse(a, b, astexpr_t, astexpr_t1, astexpr_t2) => ASTExprT::ASTMerge(
+            a,
+            b.clone(),
+            Box::new(ASTExprT::ASTVar(
+                ASTNameT::ASTString("__true_then_false__".to_string()),
+                ASTTypeT::ASTBool,
+            )),
+            Box::new(ASTExprT::ASTBinop(
                 a,
                 b.clone(),
-                Box::new(ASTExprT::ASTVar(ASTNameT::ASTString("__true_then_false__".to_string()), ASTTypeT::ASTBool)),
-                Box::new(ASTExprT::ASTBinop(
-                    a,
-                    b.clone(),
-                    ASTBinopT::ASTWhen,
-                    astexpr_t1,
-                    Box::new(ASTExprT::ASTVar(ASTNameT::ASTString("__true_then_false__".to_string()), ASTTypeT::ASTBool)),
+                ASTBinopT::ASTWhen,
+                astexpr_t1,
+                Box::new(ASTExprT::ASTVar(
+                    ASTNameT::ASTString("__true_then_false__".to_string()),
+                    ASTTypeT::ASTBool,
                 )),
-                Box::new(ASTExprT::ASTBinop(
+            )),
+            Box::new(ASTExprT::ASTBinop(
+                a,
+                b.clone(),
+                ASTBinopT::ASTWhen,
+                astexpr_t2,
+                Box::new(ASTExprT::ASTUnop(
                     a,
-                    b.clone(),
-                    ASTBinopT::ASTWhen,
-                    astexpr_t2,
-                    Box::new(ASTExprT::ASTUnop(a, b, ASTUnopT::ASTNot, Box::new(ASTExprT::ASTVar(ASTNameT::ASTString("__true_then_false__".to_string()), ASTTypeT::ASTBool)))),
+                    b,
+                    ASTUnopT::ASTNot,
+                    Box::new(ASTExprT::ASTVar(
+                        ASTNameT::ASTString("__true_then_false__".to_string()),
+                        ASTTypeT::ASTBool,
+                    )),
                 )),
-            ),
+            )),
+        ),
         ASTExprT::ASTVec(_, _, _) => todo!(),
         ASTExprT::ASTPow(_, _, _, _) => todo!(),
         ASTExprT::ASTGetElement(_, _, _, _) => todo!(),

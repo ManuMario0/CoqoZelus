@@ -83,7 +83,10 @@ pub fn generate_c_code(ast: CProg) -> String {
     let state_struct = generate_state(ast.state.clone(), ast.local_vars);
 
     // generate init function
-    let init = format!("void init(State *__state_0) {{\n{}}}\n\n", generate_init(ast.state));
+    let init = format!(
+        "void init(State *__state_0) {{\n{}}}\n\n",
+        generate_init(ast.state)
+    );
 
     // then we generate the body of the function
     let body = generate_body(ast.step);
@@ -131,36 +134,39 @@ fn generate_instruction(i: Cinstruction) -> String {
             let expr = generate_expr(cexpr);
             let var = cvar.name;
             format!("__state_0->{var} = {expr}")
-        },
+        }
         Cinstruction::Ccase(cvar, cinstruction, cinstruction1) => {
             let expr1 = generate_instruction(*cinstruction);
             let expr2 = generate_instruction(*cinstruction1);
             let var = cvar.name;
             format!("if (__state_0->{var}) {{\n{expr1}}} else {{\n{expr2}}}")
-        },
+        }
     }
 }
 
 fn generate_expr(expr: Cexpr) -> String {
     match expr {
-        Cexpr::Cconst(cconst) => {
-            match cconst {
-                CConst::CCint(i) => format!("{i}"),
-                CConst::CCbool(b) => {
-                    if b {
-                        format!("true")
-                    } else {
-                        format!("false")
-                    }
-                },
-                CConst::CCfloat(f) => format!("{f}"),
+        Cexpr::Cconst(cconst) => match cconst {
+            CConst::CCint(i) => format!("{i}"),
+            CConst::CCbool(b) => {
+                if b {
+                    format!("true")
+                } else {
+                    format!("false")
+                }
             }
+            CConst::CCfloat(f) => format!("{f}"),
         },
         Cexpr::Cvar(caccess_var) => {
             format!("__state_0->{}", caccess_var.name)
-        },
+        }
         Cexpr::Cbinop(binop, cexpr, cexpr1) => {
-            format!("({} {} {})", generate_expr(*cexpr1), generate_binop(binop), generate_expr(*cexpr))
+            format!(
+                "({} {} {})",
+                generate_expr(*cexpr1),
+                generate_binop(binop),
+                generate_expr(*cexpr)
+            )
         }
         Cexpr::Cunop(unop, cexpr) => {
             format!("({} {})", generate_unop(unop), generate_expr(*cexpr))
@@ -186,16 +192,18 @@ fn generate_binop(b: Binop) -> String {
         Binop::Bneq => "!=",
         Binop::Band => "&&",
         Binop::Bor => "||",
-        Binop::Bxor => "^",//bitwise xor but in theory should work like a charm
-        Binop::Bimpl => "|| !",//or not should do the trick
-    }.to_string()
+        Binop::Bxor => "^", //bitwise xor but in theory should work like a charm
+        Binop::Bimpl => "|| !", //or not should do the trick
+    }
+    .to_string()
 }
 
 fn generate_unop(u: Unop) -> String {
     match u {
         Unop::Uneg => "-",
         Unop::Unot => "!",
-    }.to_string()
+    }
+    .to_string()
 }
 
 fn generate_state(s: CState, m: Vec<CVar>) -> String {
