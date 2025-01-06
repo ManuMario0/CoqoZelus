@@ -3,7 +3,13 @@
 use core::panic;
 use std::ops::Not;
 
-use crate::{compiler::{astc::{self}, astlustre::{Equation, Expr, Node, Var}}, transpile::{BoolCVar, CConst, CState}};
+use crate::{
+    compiler::{
+        astc::{self},
+        astlustre::{Equation, Expr, Node, Var},
+    },
+    transpile::{BoolCVar, CConst, CState},
+};
 
 use crate::transpile::{CProg, CVar, CVarRole};
 
@@ -66,8 +72,8 @@ pub fn new_localvar(id: usize, nb_equ: i32, vtype: Typ) -> Var {
     build_var(format!("local_{}_{}", nb_equ, id), id, vtype)
 }
 
-pub fn new_fbyvar(id: usize, vtype: Typ) -> Var {
-    build_var(format!("fby_{}", id), id, vtype)
+pub fn new_fbyvar(id: usize, vtype: &Typ, index: i32) -> Var {
+    build_var(format!("fby_{}_{}", id, index), id, vtype.clone())
 }
 
 // Finds number of variables in a body
@@ -233,47 +239,28 @@ pub fn trans_var_aux(vl: &Var, lvc: &Vec<CVar>) -> Option<CVar> {
     None
 }
 
-// given a prog and a var, finds var in input, output or local_var
-pub fn trans_var(v : &Var, prog : &CProg) -> CVar {
-    match trans_var_aux(v, &prog.inputs){
+// given a prog and a var, finds var in input, output or local_var, or state
+pub fn trans_var(v: &Var, prog: &CProg) -> CVar {
+    match trans_var_aux(v, &prog.inputs) {
         Some(vc) => vc,
         None => match trans_var_aux(v, &prog.outputs) {
             Some(vc) => vc,
             None => match trans_var_aux(v, &prog.local_vars) {
                 Some(vc) => vc,
-                None => panic!("should not happen : could not find cvar in prog"),
+                None => match trans_var_aux(v, &prog.state.vars) {
+                    Some(vc) => vc,
+                    None => panic!("should not happen : could not find cvar in prog {:?}", v),
+                },
             },
         },
     }
 }
 
-// given a prog and a boolvar, finds var in input, output or local_var
-pub fn trans_boolvar(bv : &BoolVar, prog : &CProg) -> BoolCVar {
-    match bv{
-        BoolVar::True(v) => {
-            match trans_var_aux(v, &prog.inputs){
-                Some(vc) => BoolCVar::True(vc),
-                None => match trans_var_aux(v, &prog.outputs){
-                    Some(vc) => BoolCVar::True(vc),
-                    None => match trans_var_aux(v, &prog.local_vars){
-                        Some(vc) => BoolCVar::True(vc),
-                        None => panic!("should not happen : could not find cvar in prog")
-                    }
-                }
-            }
-        }
-        BoolVar::False(v) => {
-            match trans_var_aux(v, &prog.inputs){
-                Some(vc) => BoolCVar::False(vc),
-                None => match trans_var_aux(v, &prog.outputs){
-                    Some(vc) => BoolCVar::False(vc),
-                    None => match trans_var_aux(v, &prog.local_vars){
-                        Some(vc) => BoolCVar::False(vc),
-                        None => panic!("should not happen : could not find cvar in prog")
-                    }
-                }
-            }
-        }
+// given a prog and a boolvar, finds var in input, output or local_var, or state
+pub fn trans_boolvar(bv: &BoolVar, prog: &CProg) -> BoolCVar {
+    match bv {
+        BoolVar::True(v) => BoolCVar::True(trans_var(v, prog)),
+        BoolVar::False(v) => BoolCVar::False(trans_var(v, prog)),
     }
 }
 
@@ -287,11 +274,12 @@ pub fn contains_var(vl: &Var, lvc: &Vec<CVar>) -> bool {
     false
 }
 
-// given a prog and a var, checks if var is in input, output or local_var
+// given a prog and a var, checks if var is in input, output or local_var, or state
 pub fn var_in_prog(v: &Var, prog: &CProg) -> bool {
     contains_var(v, &prog.inputs)
         || contains_var(v, &prog.outputs)
         || contains_var(v, &prog.local_vars)
+        || contains_var(v, &prog.state.vars)
 }
 
 // translate a Constant into a CConst (this is straightforward)

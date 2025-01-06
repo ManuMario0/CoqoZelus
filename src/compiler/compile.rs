@@ -18,7 +18,8 @@ use super::{
     astc::{build_step, eq_var_c},
     build_d_info,
     utilityastlustre::{
-        contains_var, gather_vars, is_fby, new_fbyvar, out_of_pre, push_equ, trans_boolvar, trans_var, translate_const, translate_var, type_expr, var_in_common, var_in_prog
+        contains_var, gather_vars, is_fby, new_fbyvar, out_of_pre, push_equ, trans_boolvar,
+        trans_var, translate_const, translate_var, type_expr, var_in_common, var_in_prog,
     },
     DInfo,
 };
@@ -101,20 +102,22 @@ pub fn normalize_equations(body: &Vec<Equation>) -> Vec<Equation> {
 }
 
 // in paper : NormD
-// these all mirror the wanted list !
 pub fn normalize_equ(equ: &Equation, nb_equ: i32) -> Vec<Equation> {
     match &equ.expression {
         Expr::Efby(v, e) => {
             let vtype = equ.var.vtype.clone();
 
-            let fbyvar = new_fbyvar(nb_equ.try_into().unwrap(), vtype);
+            let fbyvar = new_fbyvar(nb_equ.try_into().unwrap(), &vtype, 0);
+            let fbyvarinter = new_fbyvar(nb_equ.try_into().unwrap(), &vtype, 1);
             let (e, equs, _) = normalize_expression_aux(&e, &Vec::new(), nb_equ, 0);
 
             let fbyexpr = Expr::Efby(v.clone(), Box::new(Expr::Evar(fbyvar.clone())));
             // first, we push fbyvar = e
             let equs = push_equ(equs, &fbyvar, e);
-            // then, we push equ.var = v fby fbyvar
-            push_equ(equs, &equ.var, fbyexpr)
+            // then, we push fbyvarinter = v fby fbyvar
+            let equs = push_equ(equs, &fbyvarinter, fbyexpr);
+            // then, we push equ.var = fbyvarinter
+            push_equ(equs, &equ.var, Expr::Evar(fbyvarinter))
         }
         Expr::Ecall(_, _) => panic!(),
         _ => {
@@ -216,7 +219,7 @@ pub fn is_ready(equ: &Equation, key: &usize, d: &DInfo) -> bool {
             let vars_in_e = gather_vars(e);
             for (i, equ_info) in d {
                 if key == i {
-                    break;
+                    continue;
                 }
                 if var_in(&equ.var, &equ_info.vars) {
                     return false;
@@ -230,7 +233,7 @@ pub fn is_ready(equ: &Equation, key: &usize, d: &DInfo) -> bool {
         _ => {
             for (i, equ_info) in d {
                 if key == i {
-                    break;
+                    continue;
                 }
                 if var_in(&equ.var, &equ_info.left) {
                     return false;
@@ -287,15 +290,18 @@ pub fn translate_vars(node: &Node) -> CProg {
     for equ in &node.body {
         match &equ.expression {
             Expr::Efby(v, _) => {
-                prog.state
-                    .vars
-                    .push(translate_var(&equ.var, CVarRole::LocalVar, Some(v)))
+                if !contains_var(&equ.var, &prog.state.vars) {
+                    prog.state
+                        .vars
+                        .push(translate_var(&equ.var, CVarRole::LocalVar, Some(v)))
+                }
             }
-            _ => {}
-        }
-        if var_in_prog(&equ.var, &prog).not() {
-            prog.local_vars
-                .push(translate_var(&equ.var, CVarRole::LocalVar, None));
+            _ => {
+                if !var_in_prog(&equ.var, &prog) {
+                    prog.local_vars
+                        .push(translate_var(&equ.var, CVarRole::LocalVar, None));
+                }
+            }
         }
     }
     prog
