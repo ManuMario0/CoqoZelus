@@ -170,12 +170,30 @@ fn translate_expr<'a>(obj: &FileObj<'a, 'a>, e: &ASTExprT, map: &HashMap<String,
                     };
                     astlustre::Expr::Ewhen(Box::new(translate_expr(obj, astexpr_t, map)), var.clone())
                 },
-                ASTBinopT::ASTFby =>
-                    astlustre::Expr::Efby(
-                        Box::new(translate_expr(obj, astexpr_t, map)), 
-                        Box::new(translate_expr(obj, astexpr_t1, map))
-                    ),
-                ASTBinopT::ASTArrow => 
+                ASTBinopT::ASTFby => {
+                    match **astexpr_t {
+                        ASTExprT::ASTConst(_, _, ASTConstT::ASTBool(b)) => {
+                            astlustre::Expr::Efby(
+                                astlustre::Constant::Cbool(b),
+                                Box::new(translate_expr(obj, astexpr_t1, map))
+                            )
+                        },
+                        ASTExprT::ASTConst(_, _, ASTConstT::ASTInt(i)) => {
+                            astlustre::Expr::Efby(
+                                astlustre::Constant::Cint(i as i32),
+                                Box::new(translate_expr(obj, astexpr_t1, map))
+                            )
+                        },
+                        ASTExprT::ASTConst(_, _, ASTConstT::ASTReal(r)) => {
+                            astlustre::Expr::Efby(
+                                astlustre::Constant::Cfloat(r as f32),
+                                Box::new(translate_expr(obj, astexpr_t1, map))
+                            )
+                        },
+                        _ => panic!()
+                    }
+                },
+                ASTBinopT::ASTArrow =>
                     astlustre::Expr::Earrow(
                         Box::new(translate_expr(obj, astexpr_t, map)), 
                         Box::new(translate_expr(obj, astexpr_t1, map))
@@ -318,9 +336,10 @@ fn simplify_expr(expr: ASTExprT) -> ASTExprT {
         ASTExprT::ASTUnop(a, b, ASTUnopT::ASTPre, astexpr_t) =>
             {
                 let tmp = simplify_expr(*astexpr_t);
+                let cst = constant_gen_from_type(&b);
                 // I don't know what to use for bottom as I still don't know the type (and don't want to be bothered with it)
                 // so I simply use the right side of the expression as first value lol
-                ASTExprT::ASTBinop(a, b, ASTBinopT::ASTFby, Box::new(tmp.clone()), Box::new(tmp))
+                ASTExprT::ASTBinop(a, b.clone(), ASTBinopT::ASTFby, Box::new(ASTExprT::ASTConst(a, b, cst)), Box::new(tmp))
             }
         ,
         ASTExprT::ASTUnop(a, b, c, astexpr_t) => 
@@ -358,5 +377,16 @@ fn simplify_expr(expr: ASTExprT) -> ASTExprT {
                 Box::new(simplify_expr(*astexpr_t)), 
                 Box::new(simplify_expr(*astexpr_t1))
             ),
+    }
+}
+
+fn constant_gen_from_type(t: &ASTTypeT) -> ASTConstT {
+    match t {
+        ASTTypeT::ASTNone => panic!("Please type check the ast before running this instruction"),
+        ASTTypeT::ASTBool => ASTConstT::ASTBool(false),
+        ASTTypeT::ASTInt => ASTConstT::ASTInt(0),
+        ASTTypeT::ASTReal => ASTConstT::ASTReal(0.),
+        ASTTypeT::ASTLabel(_) => panic!("Please type check the ast before running this instruction"),
+        ASTTypeT::ASTVec(astexpr_t, asttype_t) => todo!(),
     }
 }
