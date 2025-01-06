@@ -11,5 +11,5 @@ const
 node MonJolieNoeudQueJaime (x, y: int) returns () ;
 let
 	x = 0;
-	y = g -> y;
+	y = g + x;
 tel
