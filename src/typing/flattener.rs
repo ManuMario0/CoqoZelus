@@ -31,13 +31,13 @@ pub fn remove_const(
         ASTOneDeclT::ASTNodeDecl(mut astnode_decl_t) => {
             let mut var_tbl = HashSet::new();
             for p in &astnode_decl_t.params {
-                var_tbl.insert(obj.span_str(p.name));
+                var_tbl.insert(p.name.clone().get_name(obj));
             }
             for r in &astnode_decl_t.returns {
-                var_tbl.insert(obj.span_str(r.name));
+                var_tbl.insert(r.name.clone().get_name(obj));
             }
             for l in &astnode_decl_t.localVars {
-                var_tbl.insert(obj.span_str(l.name));
+                var_tbl.insert(l.name.clone().get_name(obj));
             }
             let mut new_body = vec![];
             for e in astnode_decl_t.body {
@@ -51,7 +51,7 @@ pub fn remove_const(
                         for v in vec {
                             match v {
                                 ASTLeftItemT::ASTVar(span) => {
-                                    let name = obj.span_str(*span);
+                                    let name = span.clone().get_name(obj);
                                     match var_tbl.get(&name) {
                                         Some(_) => {
                                             new_body.push(ASTEquationT {
@@ -65,7 +65,7 @@ pub fn remove_const(
                                             });
                                         }
                                         None => {
-                                            let ((line, col), _) = obj.line_col(*span);
+                                            let ((line, col), _) = obj.line_col(span.clone().get_span());
                                             println!("{name} : this symbol does not exists : line {line} col {col}");
                                             panic!()
                                         }
@@ -96,13 +96,13 @@ fn remove_const_from_expr(
     match v {
         ASTExprT::ASTConst(s, t, astconst_t) => ASTExprT::ASTConst(s, t, astconst_t),
         ASTExprT::ASTVar(span, _) => {
-            let name = obj.span_str(span);
+            let name = span.clone().get_name(obj);
             match const_tbl.get(&name) {
                 Some(res) => res.clone(),
                 None => match var_tbl.get(&name) {
                     Some(_) => ASTExprT::ASTVar(span, ASTTypeT::ASTNone),
                     None => {
-                        let ((line, col), _) = obj.line_col(span);
+                        let ((line, col), _) = obj.line_col(span.get_span());
                         println!("{name} : this symbol does not exists : line {line} col {col}");
                         panic!()
                     }

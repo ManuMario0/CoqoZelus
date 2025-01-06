@@ -59,9 +59,31 @@ pub enum ASTBinopT {
 }
 
 #[derive(Debug, Clone)]
+pub enum ASTNameT {
+    ASTSpan(Span),
+    ASTString(String)
+}
+
+impl ASTNameT {
+    pub fn get_name<'a>(self, obj: &FileObj<'a, 'a>) -> String {
+        match self {
+            ASTNameT::ASTSpan(span) => obj.span_str(span),
+            ASTNameT::ASTString(s) => s,
+        }
+    }
+
+    pub fn get_span(self) -> Span {
+        match self {
+            ASTNameT::ASTSpan(span) => span,
+            ASTNameT::ASTString(_) => Span::new(0, 0),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum ASTExprT {
     ASTConst(Span, ASTTypeT, ASTConstT),
-    ASTVar(Span, ASTTypeT),
+    ASTVar(ASTNameT, ASTTypeT),
     ASTUnop(Span, ASTTypeT, ASTUnopT, Box<ASTExprT>),
     ASTBinop(Span, ASTTypeT, ASTBinopT, Box<ASTExprT>, Box<ASTExprT>),
     ASTIfThenElse(Span, ASTTypeT, Box<ASTExprT>, Box<ASTExprT>, Box<ASTExprT>),
@@ -133,7 +155,7 @@ pub struct ASTNodeDeclT {
 
 #[derive(Debug, Clone)]
 pub struct ASTVarT {
-    pub name: Span,
+    pub name: ASTNameT,
     pub ttype: ASTTypeT,
 }
 
@@ -153,7 +175,7 @@ pub enum ASTLeftT {
 
 #[derive(Debug, Clone)]
 pub enum ASTLeftItemT {
-    ASTVar(Span),
+    ASTVar(ASTNameT),
     ASTTableElement(Box<ASTLeftItemT>, ASTExprT),
     ASTTableSlice(Box<ASTLeftItemT>, ASTSelectT),
 }

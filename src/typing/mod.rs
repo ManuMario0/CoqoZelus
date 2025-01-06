@@ -1,12 +1,12 @@
 use core::panic;
 use std::{
-    collections::{HashMap, HashSet},
-    u64, vec,
+    collections::{HashMap, HashSet}, sync::mpsc::TryRecvError, u64, vec
 };
 
 mod flattener;
 mod typing;
 use flattener::*;
+use lrpar::Span;
 use typing::*;
 
 use crate::compiler::astlustre::{self, Unop};
@@ -114,7 +114,7 @@ fn translate_var<'a>(
     map: &mut HashMap<String, astlustre::Var>,
 ) -> astlustre::Var {
     *id += 1;
-    let name = obj.span_str(v.name);
+    let name = v.name.to_owned().get_name(obj);
     let var = astlustre::Var {
         name: name.clone(),
         id: *id,
@@ -143,8 +143,8 @@ fn translate_equation<'a>(
     // translate lhs
     let var_name = match &e.lhs {
         ASTLeftT::ASTAssert() => todo!(),
-        ASTLeftT::ASTLeftItem(vec) => match vec[0] {
-            ASTLeftItemT::ASTVar(span) => obj.span_str(span),
+        ASTLeftT::ASTLeftItem(vec) => match &vec[0] {
+            ASTLeftItemT::ASTVar(span) => span.clone().get_name(obj),
             _ => todo!(),
         },
     };
@@ -173,7 +173,7 @@ fn translate_expr<'a>(
             }
         },
         ASTExprT::ASTVar(s, _) => {
-            let var_name = obj.span_str(*s);
+            let var_name = s.clone().get_name(obj);
             astlustre::Expr::Evar(map.get(&var_name).unwrap().clone())
         }
         ASTExprT::ASTUnop(_, _, unop, astexpr_t) => match unop {
@@ -192,8 +192,8 @@ fn translate_expr<'a>(
         },
         ASTExprT::ASTBinop(_, _, binop, astexpr_t, astexpr_t1) => match binop {
             ASTBinopT::ASTWhen => {
-                let var = match **astexpr_t1 {
-                    ASTExprT::ASTVar(span, _) => map.get(&obj.span_str(span)).unwrap(),
+                let var = match *astexpr_t1.to_owned() {
+                    ASTExprT::ASTVar(span, _) => map.get(&span.clone().get_name(obj)).unwrap(),
                     _ => panic!(),
                 };
                 astlustre::Expr::Ewhen(Box::new(translate_expr(obj, astexpr_t, map)), var.clone())
@@ -298,11 +298,15 @@ fn translate_expr<'a>(
         ASTExprT::ASTGetSlice(_, _, astexpr_t, astselect_t) => todo!(),
         ASTExprT::ASTList(_, _, vec) => todo!(),
         ASTExprT::ASTMerge(_, _, astexpr_t, astexpr_t1, astexpr_t2) => {
-            todo!() /*astlustre::Expr::Emerge(
-                        astlustre::Binop::Band,
-                        Box::new(translate_expr(obj, astexpr_t, map)),
-                        Box::new(translate_expr(obj, astexpr_t1, map))
-                    ),*/
+            match *astexpr_t.to_owned() {
+                ASTExprT::ASTVar(s, _) => {
+                    astlustre::Expr::Emerge(
+                        map.get(&s.get_name(obj)).unwrap().clone(),
+                        Box::new(translate_expr(obj, astexpr_t1, map)), 
+                        Box::new(translate_expr(obj, astexpr_t2, map)))
+                },
+                _ => panic!(),
+            }
         }
     }
 }
@@ -312,7 +316,17 @@ fn simplify_decl(a: ASTOneDeclT) -> ASTOneDeclT {
         ASTOneDeclT::ASTNodeDecl(astnode_decl_t) => {
             let params = astnode_decl_t.params;
             let returns = astnode_decl_t.returns;
-            let locals = astnode_decl_t.localVars;
+            let mut locals = astnode_decl_t.localVars;
+            locals.push(ASTVarT {
+                name: ASTNameT::ASTString("__true_then_false__".to_string()),
+                ttype: ASTTypeT::ASTBool
+            });
+            let prefix_eq = vec![ASTEquationT {
+                lhs: ASTLeftT::ASTLeftItem(vec![ASTLeftItemT::ASTVar(ASTNameT::ASTString("__true_then_false__".to_string()))]),
+                rhs: ASTExprT::ASTBinop(Span::new(0, 0), ASTTypeT::ASTBool, ASTBinopT::ASTFby, 
+                Box::new(ASTExprT::ASTConst(Span::new(0, 0), ASTTypeT::ASTBool, ASTConstT::ASTBool(true))), 
+                Box::new(ASTExprT::ASTConst(Span::new(0, 0), ASTTypeT::ASTBool, ASTConstT::ASTBool(false))))
+            }];
             let mut res = Vec::with_capacity(astnode_decl_t.body.len());
             for e in astnode_decl_t.body {
                 res.push(ASTEquationT {
@@ -325,7 +339,7 @@ fn simplify_decl(a: ASTOneDeclT) -> ASTOneDeclT {
                 params,
                 returns,
                 localVars: locals,
-                body: res,
+                body: [prefix_eq, res].concat(),
             })
         }
         _ => a,
@@ -381,25 +395,26 @@ fn simplify_expr(expr: ASTExprT) -> ASTExprT {
             Box::new(simplify_expr(*expr1)),
             Box::new(simplify_expr(*expr2)),
         ),
-        ASTExprT::ASTIfThenElse(a, b, astexpr_t, astexpr_t1, astexpr_t2) => ASTExprT::ASTMerge(
-            a,
-            b.clone(),
-            astexpr_t.clone(),
-            Box::new(ASTExprT::ASTBinop(
+        ASTExprT::ASTIfThenElse(a, b, astexpr_t, astexpr_t1, astexpr_t2) =>
+            ASTExprT::ASTMerge(
                 a,
                 b.clone(),
-                ASTBinopT::ASTWhen,
-                astexpr_t1,
-                astexpr_t.clone(),
-            )),
-            Box::new(ASTExprT::ASTBinop(
-                a,
-                b.clone(),
-                ASTBinopT::ASTWhen,
-                astexpr_t2,
-                Box::new(ASTExprT::ASTUnop(a, b, ASTUnopT::ASTNot, astexpr_t)),
-            )),
-        ),
+                Box::new(ASTExprT::ASTVar(ASTNameT::ASTString("__true_then_false__".to_string()), ASTTypeT::ASTBool)),
+                Box::new(ASTExprT::ASTBinop(
+                    a,
+                    b.clone(),
+                    ASTBinopT::ASTWhen,
+                    astexpr_t1,
+                    Box::new(ASTExprT::ASTVar(ASTNameT::ASTString("__true_then_false__".to_string()), ASTTypeT::ASTBool)),
+                )),
+                Box::new(ASTExprT::ASTBinop(
+                    a,
+                    b.clone(),
+                    ASTBinopT::ASTWhen,
+                    astexpr_t2,
+                    Box::new(ASTExprT::ASTUnop(a, b, ASTUnopT::ASTNot, Box::new(ASTExprT::ASTVar(ASTNameT::ASTString("__true_then_false__".to_string()), ASTTypeT::ASTBool)))),
+                )),
+            ),
         ASTExprT::ASTVec(_, _, _) => todo!(),
         ASTExprT::ASTPow(_, _, _, _) => todo!(),
         ASTExprT::ASTGetElement(_, _, _, _) => todo!(),

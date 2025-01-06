@@ -80,7 +80,10 @@ pub fn generate_c_code(ast: CProg) -> String {
     first we generate the structure holding the state
     TODO: check that we have to merge state and localvars later
     */
-    let state_struct = generate_state(ast.state, ast.local_vars);
+    let state_struct = generate_state(ast.state.clone(), ast.local_vars);
+
+    // generate init function
+    let init = format!("void init(State *__state_0) {{\n{}}}\n\n", generate_init(ast.state));
 
     // then we generate the body of the function
     let body = generate_body(ast.step);
@@ -98,7 +101,20 @@ pub fn generate_c_code(ast: CProg) -> String {
     let suffix = format!("\treturn __state_0->{r_name};\n}}");
 
     let macros = "#include<stlib.h>\n#include<stdbool.h>\n\n\n".to_string();
-    [macros, state_struct, prefix, body, suffix].concat()
+    [macros, state_struct, init, prefix, body, suffix].concat()
+}
+
+fn generate_init(s: CState) -> String {
+    let mut res = "".to_string();
+    for v in s.vars {
+        match v.init_value {
+            Some(CConst::CCbool(b)) => res = format!("{res}\t__state_0->{} = {b}\n", v.name),
+            Some(CConst::CCint(i)) => res = format!("{res}\t__state_0->{} = {i}\n", v.name),
+            Some(CConst::CCfloat(f)) => res = format!("{res}\t__state_0->{} = {f}\n", v.name),
+            None => (),
+        }
+    }
+    res
 }
 
 fn generate_body(step: CStep) -> String {
@@ -116,7 +132,12 @@ fn generate_instruction(i: Cinstruction) -> String {
             let var = cvar.name;
             format!("__state_0->{var} = {expr}")
         },
-        Cinstruction::Ccase(cvar, cinstruction, cinstruction1) => todo!(),
+        Cinstruction::Ccase(cvar, cinstruction, cinstruction1) => {
+            let expr1 = generate_instruction(*cinstruction);
+            let expr2 = generate_instruction(*cinstruction1);
+            let var = cvar.name;
+            format!("if (__state_0->{var}) {{\n{expr1}}} else {{\n{expr2}}}")
+        },
     }
 }
 
@@ -178,14 +199,14 @@ fn generate_unop(u: Unop) -> String {
 }
 
 fn generate_state(s: CState, m: Vec<CVar>) -> String {
-    let mut res = "struct State {".to_string();
+    let mut res = "typedef struct {".to_string();
     for v in s.vars {
         res = format!("{res}\n\t {} {};", generate_type(v.vtype), v.name)
     }
     for v in m {
         res = format!("{res}\n\t {} {};", generate_type(v.vtype), v.name)
     }
-    res = format!("{res}\n}};\n");
+    res = format!("{res}\n}} State;\n\n");
     res
 }
 

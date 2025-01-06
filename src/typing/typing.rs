@@ -67,28 +67,28 @@ pub fn type_decl(
             for p in astnode_decl_t.params {
                 let np = fill_type(obj, type_tbl, p.ttype);
                 params.push(ASTVarT {
-                    name: p.name,
+                    name: p.name.clone(),
                     ttype: np.clone(),
                 });
-                var_tbl.insert(obj.span_str(p.name), np);
+                var_tbl.insert(p.name.get_name(obj), np);
             }
             let mut returns = Vec::with_capacity(astnode_decl_t.returns.len());
             for r in astnode_decl_t.returns {
                 let nr = fill_type(obj, type_tbl, r.ttype);
                 returns.push(ASTVarT {
-                    name: r.name,
+                    name: r.name.clone(),
                     ttype: nr.clone(),
                 });
-                var_tbl.insert(obj.span_str(r.name), nr);
+                var_tbl.insert(r.name.get_name(obj), nr);
             }
             let mut locals = Vec::with_capacity(astnode_decl_t.localVars.len());
             for l in astnode_decl_t.localVars {
                 let nl = fill_type(obj, type_tbl, l.ttype);
                 locals.push(ASTVarT {
-                    name: l.name,
+                    name: l.name.clone(),
                     ttype: nl.clone(),
                 });
-                var_tbl.insert(obj.span_str(l.name), nl);
+                var_tbl.insert(l.name.get_name(obj), nl);
             }
             let mut new_body = vec![];
             for e in astnode_decl_t.body {
@@ -102,27 +102,27 @@ pub fn type_decl(
                         match &vec[0] {
                             ASTLeftItemT::ASTVar(span) => {
                                 // just check the types
-                                let olt = var_tbl.get(&obj.span_str(*span)).cloned();
+                                let olt = var_tbl.get(&span.clone().get_name(obj)).cloned();
                                 match olt {
                                     Some(lt) => {
                                         let expr = fill_type_in_expr(obj, type_tbl, var_tbl, e.rhs);
                                         if lt == *get_type(&expr) {
                                             new_body.push(ASTEquationT {
                                                 lhs: ASTLeftT::ASTLeftItem(vec![
-                                                    ASTLeftItemT::ASTVar(*span),
+                                                    ASTLeftItemT::ASTVar(span.clone()),
                                                 ]),
                                                 rhs: expr,
                                             });
                                         } else {
                                             obj.print_error_message(
-                                                *span,
+                                                span.clone().get_span(),
                                                 "Right hand side don't have the correct type",
                                             );
                                             panic!()
                                         }
                                     }
                                     None => {
-                                        obj.print_error_message(*span, "Variable does not exists");
+                                        obj.print_error_message(span.clone().get_span(), "Variable does not exists");
                                         panic!()
                                     }
                                 }
@@ -159,10 +159,10 @@ fn fill_type_in_expr(
             ASTConstT::ASTInt(_) => ASTExprT::ASTConst(span, ASTTypeT::ASTInt, astconst_t),
             ASTConstT::ASTReal(_) => ASTExprT::ASTConst(span, ASTTypeT::ASTReal, astconst_t),
         },
-        ASTExprT::ASTVar(span, _) => match label_tbl.get(&obj.span_str(span)) {
+        ASTExprT::ASTVar(span, _) => match label_tbl.get(&span.clone().get_name(obj)) {
             Some(t) => ASTExprT::ASTVar(span, t.clone()),
             None => {
-                obj.print_error_message(span, "This variable does not exists");
+                obj.print_error_message(span.get_span(), "This variable does not exists");
                 panic!()
             }
         },

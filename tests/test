@@ -10,5 +10,5 @@ const
 
 node MonJolieNoeudQueJaime (x, y: int) returns (magic: int) ;
 let
-	magic = 0 fby x;
+	magic = 0 -> x;
 tel
