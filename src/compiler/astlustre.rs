@@ -38,9 +38,15 @@ pub enum Expr {
     Earrow(Box<Expr>, Box<Expr>),
     Epre(Box<Expr>),
     Efby(Constant, Box<Expr>),
-    Ewhen(Box<Expr>, Var),
+    Ewhen(Box<Expr>, BoolVar),
     Emerge(Var, Box<Expr>, Box<Expr>),
     Ecall(String, Vec<Var>),
+}
+
+#[derive(Clone, Debug)]
+pub enum BoolVar {
+    True(Var),
+    False(Var),
 }
 
 #[derive(Clone, Debug)]

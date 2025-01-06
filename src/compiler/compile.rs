@@ -18,8 +18,7 @@ use super::{
     astc::{build_step, eq_var_c},
     build_d_info,
     utilityastlustre::{
-        contains_var, gather_vars, is_fby, new_fbyvar, out_of_pre, push_equ, trans_var,
-        translate_const, translate_var, type_expr, var_in_common, var_in_prog,
+        contains_var, gather_vars, is_fby, new_fbyvar, out_of_pre, push_equ, trans_boolvar, trans_var, translate_const, translate_var, type_expr, var_in_common, var_in_prog
     },
     DInfo,
 };
@@ -369,7 +368,7 @@ pub fn translate_expression(expr: &Expr, prog: &CProg) -> Cexpr {
         }
         Expr::Ewhen(e, v) => {
             let trans_e = translate_expression(e, prog);
-            Cexpr::Cwhen(Box::new(trans_e), trans_var(v, prog))
+            Cexpr::Cwhen(Box::new(trans_e), trans_boolvar(v, prog))
         }
         _ => todo!(),
     }

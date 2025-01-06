@@ -3,17 +3,11 @@
 use core::panic;
 use std::ops::Not;
 
-use crate::{
-    compiler::{
-        astc::{self},
-        astlustre::{Equation, Expr, Node, Var},
-    },
-    transpile::{CConst, CState},
-};
+use crate::{compiler::{astc::{self}, astlustre::{Equation, Expr, Node, Var}}, transpile::{BoolCVar, CConst, CState}};
 
 use crate::transpile::{CProg, CVar, CVarRole};
 
-use super::astlustre::{Constant, Typ};
+use super::astlustre::{BoolVar, Constant, Typ};
 
 pub fn build_node(
     name: String,
@@ -239,9 +233,9 @@ pub fn trans_var_aux(vl: &Var, lvc: &Vec<CVar>) -> Option<CVar> {
     None
 }
 
-// given a prog and a var, checks if var is in input, output or local_var
-pub fn trans_var(v: &Var, prog: &CProg) -> CVar {
-    match trans_var_aux(v, &prog.inputs) {
+// given a prog and a var, finds var in input, output or local_var
+pub fn trans_var(v : &Var, prog : &CProg) -> CVar {
+    match trans_var_aux(v, &prog.inputs){
         Some(vc) => vc,
         None => match trans_var_aux(v, &prog.outputs) {
             Some(vc) => vc,
@@ -250,6 +244,36 @@ pub fn trans_var(v: &Var, prog: &CProg) -> CVar {
                 None => panic!("should not happen : could not find cvar in prog"),
             },
         },
+    }
+}
+
+// given a prog and a boolvar, finds var in input, output or local_var
+pub fn trans_boolvar(bv : &BoolVar, prog : &CProg) -> BoolCVar {
+    match bv{
+        BoolVar::True(v) => {
+            match trans_var_aux(v, &prog.inputs){
+                Some(vc) => BoolCVar::True(vc),
+                None => match trans_var_aux(v, &prog.outputs){
+                    Some(vc) => BoolCVar::True(vc),
+                    None => match trans_var_aux(v, &prog.local_vars){
+                        Some(vc) => BoolCVar::True(vc),
+                        None => panic!("should not happen : could not find cvar in prog")
+                    }
+                }
+            }
+        }
+        BoolVar::False(v) => {
+            match trans_var_aux(v, &prog.inputs){
+                Some(vc) => BoolCVar::False(vc),
+                None => match trans_var_aux(v, &prog.outputs){
+                    Some(vc) => BoolCVar::False(vc),
+                    None => match trans_var_aux(v, &prog.local_vars){
+                        Some(vc) => BoolCVar::False(vc),
+                        None => panic!("should not happen : could not find cvar in prog")
+                    }
+                }
+            }
+        }
     }
 }
 

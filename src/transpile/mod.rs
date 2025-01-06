@@ -43,7 +43,12 @@ pub enum Cexpr {
     //Clocvar(CLocalVar),
     Cbinop(Binop, Box<Cexpr>, Box<Cexpr>),
     Cunop(Unop, Box<Cexpr>),
-    Cwhen(Box<Cexpr>, CVar),
+    Cwhen(Box<Cexpr>, BoolCVar),
+}
+
+pub enum BoolCVar {
+    True(CVar),
+    False(CVar),
 }
 
 // variables
