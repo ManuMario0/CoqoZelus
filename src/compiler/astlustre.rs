@@ -7,8 +7,8 @@ use crate::transpile::{self, CProg, CVar, CVarRole};
 // program
 pub type LustreProg = Vec<Node>;
 
-#[derive(Clone)]
 // nodes
+#[derive(Clone)]
 pub struct Node {
     pub name: String,
     pub input: Vec<Var>,

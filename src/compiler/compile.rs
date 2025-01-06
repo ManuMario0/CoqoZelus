@@ -14,8 +14,6 @@ use crate::transpile::{CProg, CState, CStep, CVar, Cinstruction};
 
 use super::{astc::{build_step, eq_var_c}, build_d_info, utilityastlustre::{contains_var, gather_vars, is_fby, new_fbyvar, out_of_pre, push_equ, trans_var, translate_const, translate_var, type_expr, var_in_common, var_in_prog}, DInfo};
 
-// TODO
-// anti dependency
 
 /* ------------------------------------------------------------------------- */
 
@@ -73,20 +71,19 @@ computations that appear inside expressions */
 pub fn normalize_body(node : &Node) -> Node {
     let body = normalize_equations(&node.body);
     build_node(node.name.clone(),
-    node.input.clone(),
-    node.output.clone(),
-    node.local_vars.clone(),
-    body)
+        node.input.clone(),
+        node.output.clone(),
+        node.local_vars.clone(),
+        body)
 }
 
 // in paper : NormD, case D_1 and D_2
 pub fn normalize_equations(body : &Vec<Equation>) -> Vec<Equation> {
     let mut normed_equations = Vec::new();
-    let mut nb_fby = 0;
     let mut nb_equ = 0;
     for equ in body {
         let mut equations = normalize_equ(&equ, nb_equ);
-        equations.reverse();
+        equations.reverse(); // this should fix things being pushed in the wrong order
         normed_equations.extend(equations);
         nb_equ = nb_equ+1;
     }
@@ -94,11 +91,12 @@ pub fn normalize_equations(body : &Vec<Equation>) -> Vec<Equation> {
 }
 
 // in paper : NormD
-// these all mirror the wanted list !!!!!!!!!!!!
+// these all mirror the wanted list !
 pub fn normalize_equ(equ : &Equation, nb_equ : i32) -> Vec<Equation> {
     match &equ.expression{
         Expr::Efby(v, e) => {
             let vtype = equ.var.vtype.clone();
+            
             let fbyvar = new_fbyvar(nb_equ.try_into().unwrap(), vtype);
             let (e, equs, _) = normalize_expression_aux(&e, &Vec::new(), nb_equ, 0);
 
@@ -107,8 +105,6 @@ pub fn normalize_equ(equ : &Equation, nb_equ : i32) -> Vec<Equation> {
             let equs = push_equ(equs, &fbyvar, e);
             // then, we push equ.var = v fby fbyvar
             push_equ(equs, &equ.var, fbyexpr)
-            // I JUST REALIZED THIS PUSHES IN THE WRONG ORDER
-            // TODO FIX !!
         },
         Expr::Ecall(_, _) => panic!(),
         _ => {
@@ -220,7 +216,8 @@ pub fn is_ready(equ : &Equation, key : &usize, d : &DInfo) -> bool {
     }
 }
 
-// finds a schedule of a vector of equations
+// finds a correct scheduling of a vector of equations
+// fails if it does not find one
 pub fn schedule(body : Vec<Equation>) -> Vec<Equation> {
     let mut schedule = Vec::new();
     let mut d = build_d_info(&body);
