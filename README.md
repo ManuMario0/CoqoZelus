@@ -1,2 +1,3 @@
-# CoqoZelus
-Zelus, but in Coq
+# CompiLustre
+
+Compilation de programme Lustre en programme C
