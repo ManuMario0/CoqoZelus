@@ -1,0 +1,5 @@
+node add_mul(x, y, z : int) returns (s : int);
+let
+  x = y+z;
+  s = y*x;
+tel;

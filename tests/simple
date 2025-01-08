@@ -1,4 +1,4 @@
-node full_add_h(x : bool) returns (s : bool);
+node simple(x : bool) returns (s : bool);
 let
   s = x;
 tel;

@@ -1,0 +1,4 @@
+node add_fby(x, y : int) returns (s : int);
+let
+  s = x + (0 fby (s+1));
+tel;

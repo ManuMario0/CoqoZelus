@@ -1,4 +1,4 @@
-node full_add_h() returns (s : bool);
+node simple_fby() returns (s : bool);
 let
-  s = false fby (neg s);
+  s = false fby (not s);
 tel;

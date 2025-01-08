@@ -1,6 +1,0 @@
-node full_add_h(x, y, z : int) returns (s : int);
-let
-  x = y+z;
-  z = x+y;
-  s = z+x;
-tel;

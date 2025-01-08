@@ -1,4 +1,4 @@
-node full_add_h(x : bool, a, b : int) returns (s : int);
+node simple_merge(x: bool; a, b : int) returns (s: int);
 let
-  s = merge(x a b);
-tel;
+  s = merge x (true -> a) (false -> b)
+tel
