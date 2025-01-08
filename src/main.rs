@@ -11,24 +11,22 @@ mod typing;
 fn main() {
     match FileObj::new("tests/merge_fby") {
         Ok(obj) => {
-            println!("{:?}", obj.get_ast());
+            // println!("{:?}", obj.get_ast());
             let obj = simplify_ast(obj).unwrap();
-            println!("{:?}", obj.get_ast());
+            // println!("{:?}", obj.get_ast());
             let obj = type_ast(obj).unwrap();
-            println!("{:?}", obj.get_ast());
+            // println!("{:?}", obj.get_ast());
             let obj = flatten_const(obj).unwrap();
-            println!("{:?}", obj.get_ast());
+            // println!("{:?}", obj.get_ast());
             let ast = typing::translate(&obj).unwrap();
-            println!("{:?}", ast);
+            // println!("{:?}", ast);
             let c = compile(ast);
-            println!("{:?}", c);
+            // println!("{:?}", c);
             let prog = generate_c_code(c);
             println!("{prog}");
-            assert!(true);
         }
         Err(e) => {
             println!("{}", e);
-            assert!(false);
         }
     }
 }

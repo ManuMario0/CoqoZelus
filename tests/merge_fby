@@ -1,4 +1,4 @@
-node merge_fby(k : int, c : bool) returns (s, z : int);
+node merge_fby(k : int; c : bool) returns (s, z : int);
 let
   s = merge c (true -> (1 fby (s+k))) (false -> z);
   z = 0 fby (z+1);
