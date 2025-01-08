@@ -217,18 +217,6 @@ pub fn eq_var_lc(vl: &Var, vc: &CVar) -> bool {
     vl.name == vc.name
 }
 
-// Given a state and the variable,
-// finds a CVar equal to the variable
-// and modifies its depth
-pub fn modify_height(mut state: CState, v: &Var, depth: i32) -> CState {
-    for i in 0..state.vars.len() {
-        if eq_var_lc(v, &state.vars[i]) {
-            state.vars[i].depth = depth
-        }
-    }
-    state
-}
-
 // given a vector of cvars and a var, finds the cvar equal to the var
 pub fn trans_var_aux(vl: &Var, lvc: &Vec<CVar>) -> Option<CVar> {
     for vc in lvc {

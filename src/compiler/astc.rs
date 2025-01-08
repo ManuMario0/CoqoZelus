@@ -1,6 +1,6 @@
 /* Utility functions for C syntactic tree */
 
-use crate::transpile::{CConst, CProg, CState, CStep, CVar, CVarRole, Cexpr, Cinstruction};
+use crate::transpile::{CConst, CProg, CState, CStep, CVar, CVarRole, Cinstruction};
 
 use super::astlustre::Typ;
 
@@ -36,16 +36,6 @@ pub fn build_cprog(
 pub fn empty_state() -> CState {
     CState { vars: Vec::new() }
 }
-/*
-//creates an empty memory
-pub fn empty_mem() -> CMemory {
-    CMemory { vars: Vec::new() }
-}
-
-// builds a memory
-pub fn build_mem(vars : Vec<CLocalVar>) -> CMemory {
-    CMemory { vars }
-}*/
 
 // creates an empty step
 pub fn empty_step() -> CStep {
@@ -76,23 +66,7 @@ pub fn build_cvar(
     }
 }
 
-/*
-//build a local cvar with init value None
-pub fn build_local_cvar(name : String, vtype : Typ, id : usize) -> CLocalVar {
-    CLocalVar { name, id, vtype, init_value: None }
-}
-
-//create a local cvar of name "new_i"
-pub fn new_localcvar(vtype : Typ, id : usize) -> CLocalVar {
-    build_local_cvar(format!("new_{}", id), vtype , id)
-}
-
-// builds an Access Var
-pub fn build_access_var(var: CVar, depth: i32) -> CAccessVar {
-    CAccessVar { var, depth }
-}*/
-
 // checks that two cvariables are equal
 pub fn eq_var_c(x: &CVar, y: &CVar) -> bool {
-    x.id == y.id && x.name == y.name
+    x.name == y.name
 }

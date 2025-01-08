@@ -5,7 +5,7 @@ use crate::{
         astc::{self, build_cprog, empty_step},
         astlustre::{self, Equation, Expr, LustreProg, Node},
         utilityastlustre::{
-            self, build_base_cprog, build_equation, build_node, eq_var, modify_height,
+            self, build_base_cprog, build_equation, build_node,
             new_localvar, number_vars, type_cst, var_in,
         },
     },
@@ -15,59 +15,14 @@ use crate::{
 use crate::transpile::{CProg, CState, CStep, CVar, Cinstruction};
 
 use super::{
-    astc::{build_step, eq_var_c},
     build_d_info,
     utilityastlustre::{
-        contains_var, gather_vars, is_fby, new_fbyvar, out_of_pre, push_equ, trans_boolvar,
-        trans_var, translate_const, translate_var, type_expr, var_in_common, var_in_prog,
+        contains_var, gather_vars, new_fbyvar, out_of_pre, push_equ, trans_boolvar,
+        trans_var, translate_const, translate_var, type_expr, var_in_prog,
     },
     DInfo,
 };
 
-/* ------------------------------------------------------------------------- */
-
-/*
-// builds the CState
-/*  the notable part is finding the depth of variables in the node */
-pub fn gather_cstate(node: &Node) -> CState {
-    let state = build_base_cstate(node);
-    assign_depths(state, &node.body)
-}
-
-// assign heights to all variables
-pub fn assign_depths(mut state: CState, eqs: &Vec<Equation>) -> CState {
-    for eq in eqs {
-        state = assign_depths_aux(&state, &eq.expression, 0);
-    }
-    state
-}
-
-// auxiliary recursive function
-pub fn assign_depths_aux(state: &CState, expr: &Expr, current_depth: i32) -> CState {
-    match expr {
-        Expr::Econst(_) => state.clone(),
-        Expr::Evar(v) => modify_height(state.clone(), &v, current_depth),
-        Expr::Ebinop(_, e1, e2)
-        | Expr::Earrow(e1, e2)
-        | Expr::Emerge(_, e1 , e2 ) => {
-            let state = assign_depths_aux(state, &*e1, current_depth);
-            assign_depths_aux(&state, &*e2, current_depth)
-        }
-        Expr::Eunop(_, e) | Expr::Ewhen(e, _) => assign_depths_aux(state, e, current_depth),
-        Expr::Eifthenelse(e1, e2, e3) => {
-            let state = assign_depths_aux(state, &*e1, current_depth);
-            let state = assign_depths_aux(&state, &*e2, current_depth);
-            assign_depths_aux(&state, &*e3, current_depth)
-        }
-        Expr::Epre(e) => assign_depths_aux(state, &*e, current_depth + 1),
-        Expr::Efby(e1, e2) => {
-            let state = assign_depths_aux(state, &*e1, current_depth);
-            assign_depths_aux(&state, &*e2, current_depth + 1)
-        }
-        Expr::Ecall(_, _) => todo!(),
-    }
-}
-*/
 /* ------------------------------------------------------------------------ */
 
 /* NORMALISATION PHASE
